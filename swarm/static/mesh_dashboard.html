@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mesh network stats</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root { color-scheme: dark; --bg: #0f1419; --fg: #e7ecf3; --muted: #8b9aab; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+    header { padding: 1rem 1.25rem; border-bottom: 1px solid #243042; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    h1 { font-size: 1.1rem; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+    #meta { font-size: 0.85rem; color: var(--muted); }
+    #graph { height: calc(100vh - 64px); background: radial-gradient(ellipse at 20% 0%, #1a2436 0%, var(--bg) 55%); }
+    label { font-size: 0.8rem; color: var(--muted); }
+    input[type="url"] { width: min(420px, 90vw); padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #111827; color: var(--fg); }
+    button { padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid #3b82f6; background: #1d4ed8; color: #fff; cursor: pointer; font-size: 0.85rem; }
+    button:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Swarm mesh</h1>
+    <div>
+      <label for="endpoint">Stats URL</label><br />
+      <input id="endpoint" type="url" value="http://127.0.0.1:8766/mesh_stats" />
+      <button type="button" id="poll">Poll now</button>
+    </div>
+    <div id="meta"></div>
+  </header>
+  <div id="graph"></div>
+  <script>
+    const nodes = new vis.DataSet([]);
+    const edges = new vis.DataSet([]);
+    const container = document.getElementById("graph");
+    const meta = document.getElementById("meta");
+    const endpoint = document.getElementById("endpoint");
+    const network = new vis.Network(container, { nodes, edges }, {
+      physics: { stabilization: { iterations: 120 } },
+      edges: { arrows: "to", smooth: { type: "continuous" } },
+      nodes: { shape: "dot", size: 18, font: { color: "#e7ecf3", size: 14 } },
+    });
+
+    function edgeColor(ratio) {
+      if (ratio >= 0.85) return "#34d399";
+      if (ratio >= 0.5) return "#fbbf24";
+      return "#f87171";
+    }
+
+    function applySnapshot(data) {
+      const linkMap = data.links || {};
+      const logical = data.logical_mesh || {};
+      const nodeIds = new Set();
+      Object.values(linkMap).forEach((L) => {
+        nodeIds.add(L.src);
+        nodeIds.add(L.dst);
+      });
+      Object.values(logical).forEach((V) => {
+        if (V.node_id) nodeIds.add(V.node_id);
+        (V.neighbors || []).forEach((p) => nodeIds.add(p));
+      });
+      const visNodes = Array.from(nodeIds).map((id) => ({ id, label: id }));
+      const physEdges = Object.values(linkMap).map((L) => {
+        const r = typeof L.delivery_ratio === "number" ? L.delivery_ratio : 1;
+        return {
+          id: `p:${L.src}->${L.dst}`,
+          from: L.src,
+          to: L.dst,
+          title: `physical · loss ${(L.loss * 100).toFixed(0)}% · latency ${L.latency}s · ${L.status}\n` +
+            `sent ${L.sent} recv ${L.recv} dropped ${L.dropped}\ndelivery ${(r * 100).toFixed(1)}%`,
+          color: { color: edgeColor(r), highlight: "#93c5fd" },
+          width: 1 + Math.min(4, (L.sent || 0) / 20),
+        };
+      });
+      const logEdges = [];
+      Object.values(logical).forEach((V) => {
+        const a = V.node_id;
+        if (!a) return;
+        (V.neighbors || []).forEach((b) => {
+          logEdges.push({
+            id: `l:${a}->${b}`,
+            from: a,
+            to: b,
+            dashes: true,
+            title: `logical neighbor (${(V.neighbor_loss && V.neighbor_loss[b] != null) ? (V.neighbor_loss[b] * 100).toFixed(0) + "% cfg loss" : "mesh"})`,
+            color: { color: "#22d3ee", highlight: "#a5f3fc" },
+            width: 2,
+          });
+        });
+      });
+      nodes.clear();
+      edges.clear();
+      nodes.add(visNodes);
+      edges.add(physEdges);
+      edges.add(logEdges);
+      const s = data.swarm || {};
+      const nLog = Object.keys(logical).length;
+      meta.textContent = `mesh ${data.mesh_id || ""} · delivery ${((s.delivery_ratio || 0) * 100).toFixed(1)}% · links ${s.links_configured ?? 0} · routing views ${nLog}`;
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch(endpoint.value);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        applySnapshot(data);
+      } catch (e) {
+        meta.textContent = "Error: " + e.message;
+      }
+    }
+
+    document.getElementById("poll").addEventListener("click", poll);
+    setInterval(poll, 2000);
+    poll();
+  </script>
+</body>
+</html>

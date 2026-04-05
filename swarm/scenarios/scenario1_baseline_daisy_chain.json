@@ -1,0 +1,99 @@
+[
+  {
+    "time": 0,
+    "type": "set_default_open",
+    "open": true
+  },
+  {
+    "time": 0,
+    "type": "set_link_pair",
+    "a": "d0",
+    "b": "d1",
+    "loss_ab": 0.02,
+    "latency_ab": 0.004
+  },
+  {
+    "time": 0,
+    "type": "set_link_pair",
+    "a": "d1",
+    "b": "d2",
+    "loss_ab": 0.03,
+    "latency_ab": 0.006
+  },
+  {
+    "time": 0,
+    "type": "set_link_pair",
+    "a": "d2",
+    "b": "d3",
+    "loss_ab": 0.04,
+    "latency_ab": 0.008
+  },
+  {
+    "time": 0,
+    "type": "set_link_pair",
+    "a": "d3",
+    "b": "d4",
+    "loss_ab": 0.05,
+    "latency_ab": 0.01
+  },
+  {
+    "time": 8,
+    "type": "set_link",
+    "src": "d4",
+    "dst": "d0",
+    "loss": 0.52,
+    "latency": 0.035,
+    "status": "up",
+    "asymmetric": true
+  },
+  {
+    "time": 8,
+    "type": "set_link",
+    "src": "d0",
+    "dst": "d4",
+    "loss": 0.06,
+    "latency": 0.012,
+    "status": "up",
+    "asymmetric": true
+  },
+  {
+    "time": 18,
+    "type": "set_link",
+    "src": "d4",
+    "dst": "d1",
+    "loss": 0.35,
+    "latency": 0.022,
+    "status": "up",
+    "asymmetric": true
+  },
+  {
+    "time": 18,
+    "type": "set_link",
+    "src": "d1",
+    "dst": "d4",
+    "loss": 0.05,
+    "latency": 0.01,
+    "status": "up",
+    "asymmetric": true
+  },
+  {
+    "time": 28,
+    "type": "set_link",
+    "src": "d4",
+    "dst": "d0",
+    "loss": 0.78,
+    "latency": 0.055,
+    "status": "up",
+    "asymmetric": true
+  },
+  {
+    "time": 28,
+    "type": "set_link",
+    "src": "d0",
+    "dst": "d4",
+    "loss": 0.12,
+    "latency": 0.018,
+    "status": "up",
+    "asymmetric": true
+  }
+]

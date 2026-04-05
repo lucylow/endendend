@@ -1,0 +1,7 @@
+{
+  "nodes": {
+    "agent-0": { "type": "none", "prob": 0.0 },
+    "agent-1": { "type": "corrupt", "prob": 0.15 },
+    "agent-2": { "type": "drop", "prob": 0.2 }
+  }
+}

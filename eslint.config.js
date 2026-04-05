@@ -23,4 +23,15 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    files: [
+      "src/components/ui/**/*.{ts,tsx}",
+      "**/BillingProvider.tsx",
+      "**/StakingProvider.tsx",
+      "src/scenarios/battery-cascade/BatteryVisualizer3D.tsx",
+    ],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

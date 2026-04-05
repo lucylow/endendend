@@ -1,0 +1,7 @@
+[
+  { "time": 0, "type": "set_default_open", "open": true },
+  { "time": 0, "type": "set_link", "src": "d1", "dst": "d2", "loss": 0.05, "latency": 0.01, "status": "up" },
+  { "time": 0, "type": "set_link", "src": "d2", "dst": "d1", "loss": 0.1, "latency": 0.02, "status": "up" },
+  { "time": 2, "type": "set_link", "src": "d1", "dst": "d2", "loss": 0.9, "latency": 0.05, "status": "up" },
+  { "time": 5, "type": "set_link", "src": "d1", "dst": "d2", "loss": 0.05, "latency": 0.01, "status": "up" }
+]
