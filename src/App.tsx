@@ -57,6 +57,7 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
+    <WagmiProvider config={wagmiConfig}>
     <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <TooltipProvider>
