@@ -119,6 +119,7 @@ function App() {
       </TooltipProvider>
     </ThemeProvider>
     </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 
