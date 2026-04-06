@@ -1,5 +1,5 @@
 # BLACKOUT Swarm Coordination  
-## End-to-End Drone Simulation & IoT Swarm Orchestration Platform
+## Drone Simulation & IoT Swarm Orchestration Platform
 
 > **Hackathon:** Vertex Swarm Challenge 2026 - Final Submission  
 > **License:** MIT  
