@@ -24,11 +24,12 @@ export function useMissions() {
 
   // Realtime subscription
   useEffect(() => {
-    const channel = supabase.channel("missions-realtime");
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "missions" }, () => {
-      queryClient.invalidateQueries({ queryKey: ["missions"] });
-    });
-    channel.subscribe();
+    const channel = supabase
+      .channel("missions-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "missions" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["missions"] });
+      })
+      .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
