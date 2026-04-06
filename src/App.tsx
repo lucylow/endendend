@@ -98,7 +98,7 @@ function App() {
               <Route path="/docs" element={<Docs />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>} errorElement={<div className="min-h-screen bg-background flex items-center justify-center text-foreground"><div className="text-center space-y-2"><h1 className="text-xl font-bold">Dashboard Error</h1><p className="text-muted-foreground">Something went wrong. <a href="/dashboard" className="text-primary underline">Reload</a></p></div></div>}>
-                <Route index element={<DashboardOverview />} />
+                <Route index element={<ErrorBoundary fallback={<div className="p-8 text-muted-foreground">Failed to load overview. <a href="/dashboard" className="text-primary underline">Retry</a></div>}><DashboardOverview /></ErrorBoundary>} />
                 <Route path="simulation" element={<SimulationPage />} />
                 <Route path="swarm" element={<SwarmVisualizationPage />} />
                 <Route path="victim-detection" element={<VictimDetectionPage />} />
