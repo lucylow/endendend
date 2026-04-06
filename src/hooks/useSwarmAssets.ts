@@ -19,12 +19,11 @@ export function useSwarmAssets(missionId?: string) {
 
   useEffect(() => {
     if (!missionId) return;
-    const channel = supabase
-      .channel(`assets-${missionId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "swarm_assets", filter: `mission_id=eq.${missionId}` }, () => {
-        queryClient.invalidateQueries({ queryKey: ["swarm-assets", missionId] });
-      })
-      .subscribe();
+    const channel = supabase.channel(`assets-${missionId}`);
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "swarm_assets", filter: `mission_id=eq.${missionId}` }, () => {
+      queryClient.invalidateQueries({ queryKey: ["swarm-assets", missionId] });
+    });
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [missionId, queryClient]);
 
