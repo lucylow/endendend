@@ -5,7 +5,8 @@
 > **License:** MIT  
 > **Tech Stack:** React + TypeScript + Zustand + Three.js + YOLOv8 + ROS2 Bridge + Tashi Vertex SDK + FoxMQ P2P  
 
-**BLACKOUT Swarm Coordination** is a **production-grade platform** for **end-to-end drone swarm simulation**, **IoT network orchestration**, and **real-time mission control**. The system simulates **3 core scenarios** with **live physics**, **YOLOv8 victim detection**, **Tashi blockchain consensus**, **ROS2 hardware integration**, and **PX4 flight controllers** — all in a single, unified web + mobile interface.
+**BLACKOUT Swarm Coordination** is a **production-grade platform** for **end-to-end drone swarm simulation**, **IoT network orchestration**, and **real-time mission control**. The system simulates **3 core scenarios** with **live physics**, **YOLOv8 victim detection**, **Tashi blockchain consensus**, **ROS2 hardware integration**, and **PX4 flight controllers** — all in a single, unified web + mobile interface. Tashi Swarm Search & Rescue A decentralized swarm of drones and rovers that autonomously coordinate search-and-rescue missions using Vertex P2P messaging — no cloud dependency, no single point of failure.
+
 
 Built for **enterprise deployment** in search & rescue, warehouse autonomy, disaster response, and DePIN infrastructure, BLACKOUT Swarm Coordination transforms theoretical swarm research into operational reality.
 
