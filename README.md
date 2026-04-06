@@ -4,8 +4,6 @@
 > **Hackathon:** Vertex Swarm Challenge 2026 - Final Submission  
 > **License:** MIT  
 > **Tech Stack:** React + TypeScript + Zustand + Three.js + YOLOv8 + ROS2 Bridge + Tashi Vertex SDK + FoxMQ P2P  
-> **Demo:** [BLACKOUT Swarm Coordination.vercel.app](https://BLACKOUT Swarm Coordination.vercel.app)  
-> **Mobile APK:** [Production Build](https://github.com/lucylow/BLACKOUT Swarm Coordination/releases/tag/v1.0.0)  
 
 **BLACKOUT Swarm Coordination** is a **production-grade platform** for **end-to-end drone swarm simulation**, **IoT network orchestration**, and **real-time mission control**. The system simulates **3 core scenarios** with **live physics**, **YOLOv8 victim detection**, **Tashi blockchain consensus**, **ROS2 hardware integration**, and **PX4 flight controllers** — all in a single, unified web + mobile interface.
 
