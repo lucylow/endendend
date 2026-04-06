@@ -19,12 +19,11 @@ export function useTelemetry(missionId?: string) {
 
   useEffect(() => {
     if (!missionId) return;
-    const channel = supabase
-      .channel(`telemetry-${missionId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "telemetry_events", filter: `mission_id=eq.${missionId}` }, () => {
-        queryClient.invalidateQueries({ queryKey: ["telemetry", missionId] });
-      })
-      .subscribe();
+    const channel = supabase.channel(`telemetry-${missionId}`);
+    channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "telemetry_events", filter: `mission_id=eq.${missionId}` }, () => {
+      queryClient.invalidateQueries({ queryKey: ["telemetry", missionId] });
+    });
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [missionId, queryClient]);
 
