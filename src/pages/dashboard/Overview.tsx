@@ -1,23 +1,31 @@
 import { motion } from "framer-motion";
-import { Activity, Battery, Radio, Cpu, Zap, Users } from "lucide-react";
+import { Activity, Battery, Radio, Cpu, Zap, Users, Rocket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSwarmStore } from "@/store/swarmStore";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMissions } from "@/hooks/useMissions";
+import CreateMissionDialog from "@/components/CreateMissionDialog";
+import MissionList from "@/components/MissionList";
 
 export default function DashboardOverview() {
   const { agents, tasks, swarm, totalStaked, rewardsEarned } = useSwarmStore();
-  const avgBattery = agents.reduce((sum, a) => sum + a.battery, 0) / agents.length;
-  const avgLatency = agents.reduce((sum, a) => sum + a.latency, 0) / agents.length;
+  const { user } = useAuth();
+  const { missions } = useMissions();
+
+  const avgBattery = agents.length ? agents.reduce((sum, a) => sum + a.battery, 0) / agents.length : 0;
+  const avgLatency = agents.length ? agents.reduce((sum, a) => sum + a.latency, 0) / agents.length : 0;
   const activeAgents = agents.filter((a) => a.status === "active").length;
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
+  const activeMissions = missions.filter((m) => m.status === "active").length;
 
   const metrics = [
     { icon: Users, label: "Active Agents", value: `${activeAgents}/${agents.length}`, color: "text-primary" },
     { icon: Battery, label: "Avg Battery", value: `${avgBattery.toFixed(0)}%`, color: "text-success" },
     { icon: Zap, label: "Avg Latency", value: `${avgLatency.toFixed(0)}ms`, color: "text-accent" },
     { icon: Activity, label: "Tasks Done", value: `${completedTasks}/${tasks.length}`, color: "text-primary" },
+    { icon: Rocket, label: "Active Missions", value: `${activeMissions}`, color: "text-primary" },
     { icon: Radio, label: "Total Staked", value: `$${totalStaked.toLocaleString()}`, color: "text-primary" },
-    { icon: Cpu, label: "Rewards", value: `$${rewardsEarned.toLocaleString()}`, color: "text-success" },
   ];
 
   return (
@@ -25,13 +33,8 @@ export default function DashboardOverview() {
       <div className="space-y-2 max-w-3xl">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Swarm overview</h1>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Real-time status for <span className="text-foreground font-medium">{swarm.name}</span>. This board aggregates
-          mock telemetry, auction state, and staking surfaces so you can narrate the full stack in one screen — from
-          battery health to $TASHI-weighted trust.
-        </p>
-        <p className="text-xs text-muted-foreground font-mono border-l-2 border-primary/30 pl-3">
-          Tip: pair this view with <span className="text-foreground/90">Live simulation</span> on a second display for
-          hackathon judges.
+          Real-time status for <span className="text-foreground font-medium">{swarm.name}</span>.
+          {user ? " Connected to live backend — missions and telemetry update in real-time." : " Running in demo mode with mock telemetry."}
         </p>
       </div>
 
@@ -48,6 +51,17 @@ export default function DashboardOverview() {
           </motion.div>
         ))}
       </div>
+
+      {/* Missions Section — Live from Cloud */}
+      <Card className="bg-card/50 border-border">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-mono tracking-wider text-muted-foreground">MISSIONS (LIVE)</CardTitle>
+          {user && <CreateMissionDialog />}
+        </CardHeader>
+        <CardContent>
+          <MissionList />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Agent List */}
