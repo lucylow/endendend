@@ -169,18 +169,6 @@ Five rovers divide a search grid into sectors. When one rover dies (battery or f
 ### 3. Blind Handoff
 An aerial drone detects a victim but has low battery. It broadcasts a `TARGET_ANNOUNCEMENT`. Ground rovers bid based on distance. The closest rover claims the target and navigates to rescue.
 
----
-
-## Demo
-
-Launch the frontend (`npm run dev`) and navigate to:
-- **/** — Landing page with live swarm animation
-- **/dashboard** — Full control center (simulation, agents, analytics, staking)
-- **/scenarios/search-rescue** — Interactive SAR scenario demos
-- **/docs** — Architecture reference and API documentation
-
----
-
 ## License
 
 MIT
