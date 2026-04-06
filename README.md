@@ -1,8 +1,6 @@
 # BLACKOUT Swarm Coordination  
 ## End-to-End Drone Simulation & IoT Swarm Orchestration Platform
 
-> **Repository:** `lucylow/BLACKOUT Swarm Coordination`  
-> **Author:** Lucy Low `<low.lucYYY@gmail.com>`  
 > **Hackathon:** Vertex Swarm Challenge 2026 - Final Submission  
 > **License:** MIT  
 > **Tech Stack:** React + TypeScript + Zustand + Three.js + YOLOv8 + ROS2 Bridge + Tashi Vertex SDK + FoxMQ P2P  
@@ -14,19 +12,6 @@
 Built for **enterprise deployment** in search & rescue, warehouse autonomy, disaster response, and DePIN infrastructure, BLACKOUT Swarm Coordination transforms theoretical swarm research into operational reality.
 
 ***
-
-## 🎯 Hackathon Results
-
-**🥇 1st Place - Vertex Swarm Challenge 2026**  
-**🏆 Best Technical Implementation**  
-**⚡ Most Production-Ready**  
-
-```
-Judges: "BLACKOUT Swarm Coordination isn't a demo. It's a deployable system."
-Score: 98/100 (Technical Excellence)
-Deploy Time: 3 minutes
-Uptime: 99.99%
-```
 
 ***
 
