@@ -1,4 +1,5 @@
 import type { MissionPhase } from "@/backend/shared/mission-phases";
+import { coerceMissionScenarioKind } from "@/backend/shared/mission-scenarios";
 import { emptyMissionState, type MissionState, type RosterEntry, type SarTarget } from "@/backend/shared/mission-state";
 import type { MissionLedgerEvent } from "./mission-ledger";
 import type { VertexLedgerEventType } from "./event-types";
@@ -59,9 +60,13 @@ function applyVertex(state: MissionState, type: VertexLedgerEventType, e: Missio
   switch (type) {
     case "mission_created": {
       const cells = Number(e.payload.cellsKnown ?? 0);
+      const scenario = coerceMissionScenarioKind(
+        typeof e.payload.scenario === "string" ? e.payload.scenario : undefined,
+      );
       return {
         ...state,
         phase: asPhase(e.payload.phase) ?? "init",
+        ...(scenario ? { scenario } : {}),
         mapSummary: { ...state.mapSummary, ...(Number.isFinite(cells) && cells > 0 ? { cellsKnown: cells } : {}) },
       };
     }

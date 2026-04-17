@@ -10,7 +10,7 @@ export type ArcSettlementResult = {
   anchor: { chainRef: string; rootProofHash: string };
   /** Deterministic placeholder until a real Arc / Hedera / EVM submit is wired. */
   mockBridgeTxHash: string;
-  envelopePatch: Pick<TashiStateEnvelope, "arc">;
+  envelopePatch: Pick<TashiStateEnvelope, "arc" | "settlement">;
 };
 
 /** Arc slow-path: only after mission completion (or aborted) for public audit bundle. */
@@ -73,6 +73,7 @@ export async function sealArcSettlement(
         proofMerkleRoot: manifest.arcPayload.proofMerkleRoot,
         mockBridgeTxHash,
       },
+      settlement: manifest,
     },
   };
 }

@@ -1,4 +1,5 @@
 import type { MissionPhase } from "./mission-phases";
+import type { MissionScenarioKind } from "./mission-scenarios";
 
 export type MissionNodeRole = "explorer" | "relay" | "carrier" | "medic" | "observer";
 
@@ -41,6 +42,8 @@ export type MapSummary = {
 export type MissionState = {
   missionId: string;
   phase: MissionPhase;
+  /** Set from ``mission_created`` payload when present — drives policy + Lattice budget defaults. */
+  scenario?: MissionScenarioKind;
   createdAtMs: number;
   updatedAtMs: number;
   roster: Record<string, RosterEntry>;

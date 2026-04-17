@@ -110,7 +110,10 @@ describe("missionStateFromMachine + envelope", () => {
     expect(mission.phase).toBe("complete");
     expect(mission.mapSummary.cellsKnown).toBeGreaterThan(0);
 
-    const ledger = { head: () => null } as Pick<MissionLedger, "head"> as MissionLedger;
+    const ledger = {
+      head: () => undefined,
+      eventsForMission: () => [],
+    } as Pick<MissionLedger, "head" | "eventsForMission"> as MissionLedger;
     const registry = new NodeRegistry();
     const env = buildTashiStateEnvelope(mission, ledger, registry, Date.now());
     const sar = sarProjectionFromEnvelope(env);
