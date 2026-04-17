@@ -54,7 +54,14 @@ const SCENARIO_FULL_PAGE_SLUGS = new Set([
   "warehouse-restock",
 ]);
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (
@@ -105,7 +112,23 @@ function App() {
                 <Route path="scalability" element={<ScalabilityPage />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
                 <Route path="auctions" element={<AuctionsPage />} />
-                <Route path="staking" element={<StakingPage />} />
+                <Route
+                  path="staking"
+                  element={
+                    <ErrorBoundary
+                      fallback={
+                        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
+                          <p className="max-w-md text-sm">The staking dashboard hit a runtime error (common in embedded previews).</p>
+                          <a href="/dashboard/staking" className="text-sm text-primary underline">
+                            Reload staking
+                          </a>
+                        </div>
+                      }
+                    >
+                      <StakingPage />
+                    </ErrorBoundary>
+                  }
+                />
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="replay" element={<ReplayPage />} />
                 <Route path="agents" element={<AgentsPage />} />

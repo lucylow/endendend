@@ -122,25 +122,46 @@ function NetworkStats() {
 
 function WalletBar() {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { isContractConfigured } = useStaking();
+  const { disconnect, disconnectAsync } = useDisconnect();
+  const { isContractConfigured, chainReadError, receiptError } = useStaking();
 
   if (!isConnected) return null;
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3">
-      <div className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-4 py-2 font-mono text-xs text-muted-foreground">
-        <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-        <span className="text-foreground">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
+    <div className="flex w-full max-w-3xl flex-col items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-4 py-2 font-mono text-xs text-muted-foreground">
+          <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+          <span className="text-foreground">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
+        </div>
+        {!isContractConfigured && (
+          <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs text-amber-200 ring-1 ring-amber-500/30">
+            Demo mode — set VITE_STAKING_CONTRACT_ADDRESS for live staking
+          </span>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void disconnectAsync().catch(() => {
+              disconnect();
+            });
+          }}
+        >
+          Disconnect
+        </Button>
       </div>
-      {!isContractConfigured && (
-        <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs text-amber-200 ring-1 ring-amber-500/30">
-          Demo mode — set VITE_STAKING_CONTRACT_ADDRESS for live staking
-        </span>
-      )}
-      <Button type="button" variant="outline" size="sm" onClick={() => disconnect()}>
-        Disconnect
-      </Button>
+      {chainReadError ? (
+        <p className="rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-2 text-center text-xs text-destructive" role="alert">
+          On-chain reads failed (RPC or network). Balances may show as zero until the connection recovers: {chainReadError}
+        </p>
+      ) : null}
+      {receiptError ? (
+        <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-2 text-center text-xs text-amber-100" role="status">
+          Transaction confirmation issue: {receiptError}
+        </p>
+      ) : null}
     </div>
   );
 }

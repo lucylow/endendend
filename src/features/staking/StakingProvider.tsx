@@ -18,15 +18,10 @@ import {
   TASHI_TOKEN_ADDRESS,
 } from "./StakingContract";
 import type { StakingContextValue } from "./types";
+import { userFacingError } from "./errors";
 import { toast } from "sonner";
 
 const StakingContext = createContext<StakingContextValue | null>(null);
-
-function stakingTxErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return "Transaction failed";
-}
 
 const LIFETIME_KEY = "tashi_staking_lifetime_rewards";
 const DISPLAY_APY = Number(import.meta.env.VITE_DISPLAY_APY ?? "48.2");
@@ -77,44 +72,51 @@ export function StakingProvider({ children }: { children: ReactNode }) {
 
   const { writeContractAsync, isPending: isWritePending } = useWriteContract();
   const [hash, setHash] = useState<`0x${string}` | undefined>();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    isError: isReceiptWaitError,
+    error: receiptWaitError,
+  } = useWaitForTransactionReceipt({
     hash,
   });
   const claimAmountRef = useRef(0);
   const completedOpRef = useRef<"stake" | "unstake" | "claim" | null>(null);
   const processedReceiptRef = useRef<`0x${string}` | undefined>(undefined);
+  const processedReceiptFailureRef = useRef<`0x${string}` | undefined>(undefined);
 
   const enabledReads = Boolean(contractReady && isConnected && address && !demoNoWallet);
 
-  const { data: stakedRaw } = useReadContract({
+  const { data: stakedRaw, error: stakedReadError } = useReadContract({
     address: STAKING_ADDRESS,
     abi: STAKING_ABI,
     functionName: "stakedOf",
     args: address ? [address] : undefined,
-    query: { enabled: enabledReads },
+    query: { enabled: enabledReads, retry: 2 },
   });
 
-  const { data: pendingRaw } = useReadContract({
+  const { data: pendingRaw, error: pendingReadError } = useReadContract({
     address: STAKING_ADDRESS,
     abi: STAKING_ABI,
     functionName: "pendingRewards",
     args: address ? [address] : undefined,
-    query: { enabled: enabledReads },
+    query: { enabled: enabledReads, retry: 2 },
   });
 
-  const { data: totalStakedRaw } = useReadContract({
+  const { data: totalStakedRaw, error: totalStakedReadError } = useReadContract({
     address: STAKING_ADDRESS,
     abi: STAKING_ABI,
     functionName: "totalStaked",
-    query: { enabled: contractReady },
+    query: { enabled: contractReady, retry: 2 },
   });
 
-  const { data: walletTokenRaw } = useReadContract({
+  const walletReadsEnabled = Boolean(TASHI_TOKEN_ADDRESS && isConnected && address && !demoNoWallet);
+  const { data: walletTokenRaw, error: walletReadError } = useReadContract({
     address: TASHI_TOKEN_ADDRESS,
     abi: ERC20_BALANCE_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: Boolean(TASHI_TOKEN_ADDRESS && isConnected && address && !demoNoWallet) },
+    query: { enabled: walletReadsEnabled, retry: 2 },
   });
 
   useEffect(() => {
@@ -136,6 +138,18 @@ export function StakingProvider({ children }: { children: ReactNode }) {
     setHash(undefined);
     void queryClient.invalidateQueries();
   }, [isConfirmed, hash, queryClient]);
+
+  useEffect(() => {
+    if (!isReceiptWaitError || !hash || !receiptWaitError) return;
+    if (processedReceiptFailureRef.current === hash) return;
+    processedReceiptFailureRef.current = hash;
+    toast.error(userFacingError(receiptWaitError));
+    claimAmountRef.current = 0;
+    completedOpRef.current = null;
+    setTxKind(null);
+    setClaimCooldown(0);
+    setHash(undefined);
+  }, [isReceiptWaitError, hash, receiptWaitError]);
 
   const txBusy = isWritePending || isConfirming;
   const isStaking = txKind === "stake" && txBusy;
@@ -186,6 +200,17 @@ export function StakingProvider({ children }: { children: ReactNode }) {
 
   const apy = DISPLAY_APY;
 
+  const chainReadError = useMemo(() => {
+    if (isMockMode) return null;
+    const err = stakedReadError ?? pendingReadError ?? totalStakedReadError ?? walletReadError;
+    return err ? userFacingError(err) : null;
+  }, [isMockMode, pendingReadError, stakedReadError, totalStakedReadError, walletReadError]);
+
+  const receiptError = useMemo(() => {
+    if (!hash || !isReceiptWaitError || !receiptWaitError) return null;
+    return userFacingError(receiptWaitError);
+  }, [hash, isReceiptWaitError, receiptWaitError]);
+
   const stake = useCallback(
     async (amount: number) => {
       if (!amount || amount <= 0) return;
@@ -200,11 +225,20 @@ export function StakingProvider({ children }: { children: ReactNode }) {
       setTxKind("stake");
       completedOpRef.current = "stake";
       try {
+        let valueWei: bigint;
+        try {
+          valueWei = parseEther(String(amount));
+        } catch {
+          completedOpRef.current = null;
+          setTxKind(null);
+          toast.error("Invalid stake amount");
+          return;
+        }
         const h = await writeContractAsync({
           address: STAKING_ADDRESS!,
           abi: STAKING_ABI,
           functionName: "stake",
-          args: [parseEther(String(amount))],
+          args: [valueWei],
           account: address!,
           chain,
         });
@@ -212,7 +246,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         completedOpRef.current = null;
         setTxKind(null);
-        toast.error(stakingTxErrorMessage(err));
+        toast.error(userFacingError(err));
       }
     },
     [address, chain, contractReady, demoNoWallet, isConnected, writeContractAsync],
@@ -232,11 +266,20 @@ export function StakingProvider({ children }: { children: ReactNode }) {
       setTxKind("unstake");
       completedOpRef.current = "unstake";
       try {
+        let valueWei: bigint;
+        try {
+          valueWei = parseEther(String(amount));
+        } catch {
+          completedOpRef.current = null;
+          setTxKind(null);
+          toast.error("Invalid unstake amount");
+          return;
+        }
         const h = await writeContractAsync({
           address: STAKING_ADDRESS!,
           abi: STAKING_ABI,
           functionName: "unstake",
-          args: [parseEther(String(amount))],
+          args: [valueWei],
           account: address!,
           chain,
         });
@@ -244,7 +287,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         completedOpRef.current = null;
         setTxKind(null);
-        toast.error(stakingTxErrorMessage(err));
+        toast.error(userFacingError(err));
       }
     },
     [address, chain, contractReady, demoNoWallet, isConnected, writeContractAsync],
@@ -285,7 +328,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
       completedOpRef.current = null;
       setTxKind(null);
       setClaimCooldown(0);
-      toast.error(stakingTxErrorMessage(err));
+      toast.error(userFacingError(err));
     }
   }, [
     address,
@@ -317,6 +360,8 @@ export function StakingProvider({ children }: { children: ReactNode }) {
     isWalletConnected: isConnected,
     isContractConfigured: contractReady,
     isMockMode,
+    chainReadError,
+    receiptError,
   };
 
   return <StakingContext.Provider value={value}>{children}</StakingContext.Provider>;

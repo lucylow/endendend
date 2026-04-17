@@ -16,4 +16,8 @@ export interface StakingContextValue {
   isWalletConnected: boolean;
   isContractConfigured: boolean;
   isMockMode: boolean;
+  /** RPC / contract read failure while live mode is active (empty when mock or no wallet). */
+  chainReadError: string | null;
+  /** Set when waiting for `hash` fails (dropped tx, RPC timeout, etc.). */
+  receiptError: string | null;
 }
