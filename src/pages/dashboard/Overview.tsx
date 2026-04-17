@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Activity, Battery, Radio, Cpu, Zap, Users, Rocket } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Activity, Battery, Radio, Zap, Users, Rocket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSwarmStore } from "@/store/swarmStore";
 import { Progress } from "@/components/ui/progress";
@@ -70,23 +71,40 @@ export default function DashboardOverview() {
             <CardTitle className="text-sm font-mono tracking-wider text-muted-foreground">AGENT ROSTER</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {agents.map((agent) => (
-              <div key={agent.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: agent.color }} />
-                  <div>
-                    <div className="text-sm font-medium text-foreground">{agent.name}</div>
-                    <div className="text-[10px] text-muted-foreground capitalize font-mono">{agent.role}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-20">
-                    <Progress value={agent.battery} className="h-1.5" />
-                  </div>
-                  <span className="font-mono text-xs text-muted-foreground w-12 text-right">{agent.battery.toFixed(0)}%</span>
-                </div>
+            {agents.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/80 bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                <p className="mb-3">No agents loaded. Run a simulation or open the fleet view.</p>
+                <Link
+                  to="/dashboard/agents"
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Browse agent fleet
+                </Link>
               </div>
-            ))}
+            ) : (
+              agents.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: agent.color }} />
+                    <div>
+                      <div className="text-sm font-medium text-foreground">{agent.name}</div>
+                      <div className="text-[10px] text-muted-foreground capitalize font-mono">{agent.role}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20">
+                      <Progress value={agent.battery} className="h-1.5" />
+                    </div>
+                    <span className="font-mono text-xs text-muted-foreground w-12 text-right">
+                      {agent.battery.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -96,22 +114,34 @@ export default function DashboardOverview() {
             <CardTitle className="text-sm font-mono tracking-wider text-muted-foreground">ACTIVE TASKS</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {tasks.map((task) => (
-              <div key={task.id} className="p-3 rounded-lg bg-secondary/30 border border-border/50">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-foreground">{task.title}</span>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                    task.priority === "critical" ? "bg-destructive/20 text-destructive" :
-                    task.priority === "high" ? "bg-accent/20 text-accent" :
-                    "bg-primary/20 text-primary"
-                  }`}>{task.priority}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground capitalize font-mono">{task.status}</span>
-                  <span className="font-mono text-xs text-primary">{task.reward} $TASHI</span>
-                </div>
+            {tasks.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/80 bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                No tasks in the queue. Mission activity will show here when available.
               </div>
-            ))}
+            ) : (
+              tasks.map((task) => (
+                <div key={task.id} className="p-3 rounded-lg bg-secondary/30 border border-border/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-foreground">{task.title}</span>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                        task.priority === "critical"
+                          ? "bg-destructive/20 text-destructive"
+                          : task.priority === "high"
+                            ? "bg-accent/20 text-accent"
+                            : "bg-primary/20 text-primary"
+                      }`}
+                    >
+                      {task.priority}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground capitalize font-mono">{task.status}</span>
+                    <span className="font-mono text-xs text-primary">{task.reward} $TASHI</span>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

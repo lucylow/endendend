@@ -13,7 +13,7 @@ export function ConnectWalletCTA() {
         Link an injected wallet (MetaMask, Rabby, etc.) to stake $TASHI on-chain. In development, you can explore the
         dashboard without a wallet using mock stats.
       </p>
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-center" role="group" aria-label="Wallet connectors">
         {connectors.map((c) => (
           <Button
             key={c.id}
@@ -21,6 +21,7 @@ export function ConnectWalletCTA() {
             disabled={!c.ready || isPending}
             variant={c.ready ? "default" : "secondary"}
             className="bg-gradient-to-r from-emerald-600 to-cyan-600 font-semibold hover:from-emerald-500 hover:to-cyan-500"
+            aria-busy={isPending}
             onClick={() => connect({ connector: c })}
           >
             {isPending ? "Connecting…" : `Connect ${c.name}`}

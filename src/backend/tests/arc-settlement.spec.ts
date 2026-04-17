@@ -5,6 +5,7 @@ import { anchorManifestSummary } from "@/backend/arc/proof-anchor";
 import { NodeRegistry } from "@/backend/lattice/node-registry";
 import { MissionLedger } from "@/backend/vertex/mission-ledger";
 import { replayMissionFromLedger } from "@/backend/vertex/demo-replay";
+import { buildRewardManifest } from "@/backend/arc/reward-manifest";
 import { sealArcSettlement } from "@/backend/api/settlement";
 
 describe("Arc settlement + evidence pipeline", () => {
@@ -46,6 +47,21 @@ describe("Arc settlement + evidence pipeline", () => {
     expect(bundle.items[0].evidenceType).toBe("thermal_hit");
     expect(bundle.bundleHash).toMatch(/^[a-f0-9]{64}$/);
     expect(bundle.merkleRoot).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("buildRewardManifest rejects non-terminal missions", async () => {
+    const ledger = new MissionLedger();
+    const registry = new NodeRegistry();
+    await ledger.append({
+      missionId: "x",
+      actorId: "hq",
+      eventType: "mission_created",
+      plane: "vertex",
+      payload: { phase: "search", name: "x" },
+      timestamp: 1,
+      previousHash: ledger.tailHash(),
+    });
+    await expect(buildRewardManifest(ledger, registry, "x", 9)).rejects.toThrow(/terminal/);
   });
 
   it("sealArcSettlement rejects non-terminal missions", async () => {
@@ -125,5 +141,10 @@ describe("Arc settlement + evidence pipeline", () => {
     expect(manifest.arcPayload.chain).toBe("hedera");
     const anchor = await anchorManifestSummary(manifest);
     expect(anchor.chainRef.startsWith("hedera:")).toBe(true);
+
+    const reward = await buildRewardManifest(ledger, registry, missionId, 100, "collapsed_building");
+    expect(reward.verification.vertexLedgerTail).toMatch(/^[a-f0-9]{64}$/);
+    expect(reward.verification.merkleProofRoot).toMatch(/^[a-f0-9]{64}$/);
+    expect(reward.totalPool).toContain("HBAR");
   });
 });

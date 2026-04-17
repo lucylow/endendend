@@ -45,6 +45,12 @@ export class MissionLedger {
     return this.head()?.eventHash ?? "genesis";
   }
 
+  /** Hash of the last ledger row scoped to ``missionId`` (Vertex ordering tail for that swarm). */
+  missionTailHash(missionId: string): string {
+    const mine = this.eventsForMission(missionId);
+    return mine.length ? mine[mine.length - 1].eventHash : "genesis";
+  }
+
   /** All events for a mission id (append order). */
   eventsForMission(missionId: string): MissionLedgerEvent[] {
     return this.events.filter((e) => e.missionId === missionId);

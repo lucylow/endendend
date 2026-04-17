@@ -1,9 +1,11 @@
 import type { SettlementManifest } from "@/backend/arc/settlement-manifest";
+import { AllocationEngine, buildAllocationProfiles } from "@/backend/lattice/allocation-policies";
 import type { NodeRegistry } from "@/backend/lattice/node-registry";
+import { RecoveryManager, recoveryAggregateSyncStatus } from "@/backend/recovery/recovery-manager";
 import type { MissionLedger } from "@/backend/vertex/mission-ledger";
 import { replayMissionFromLedger } from "@/backend/vertex/demo-replay";
 import type { MissionState } from "./mission-state";
-import { ScenarioCompiler } from "./mission-policy";
+import { ScenarioCompiler, type PolicyRoleType } from "./mission-policy";
 import type { TashiStateEnvelope } from "./tashi-state-envelope";
 
 const scenarioCompiler = new ScenarioCompiler();
@@ -29,6 +31,13 @@ function coverageFromCells(cells: number): number {
 
 export type BuildEnvelopeOptions = {
   settlement?: SettlementManifest;
+  /** Build per-roster recovery diagnostics (replay / map lag / peer sync). */
+  includeRecoveryForRoster?: boolean;
+  /** When set with ``includeRecoveryForRoster``, drives ``localMapCells`` so operators see controlled map lag demos. */
+  recoveryLocalMapCellsByNode?: Record<string, number>;
+  /** Lattice allocation preview task role. */
+  allocationTaskType?: PolicyRoleType | string;
+  allocationTargetCoords?: { lat: number; lng: number };
 };
 
 export function buildTashiStateEnvelope(
@@ -73,6 +82,38 @@ export function buildTashiStateEnvelope(
   const batteryFloor = policy?.safety.batteryThreshold ?? 0.2;
   const swarmHealth = registry.swarmHealthSummary(mission, nowMs, 30_000, batteryFloor);
 
+  let recovery: TashiStateEnvelope["recovery"];
+  let allocationPreview: TashiStateEnvelope["allocationPreview"];
+  let syncStatus: TashiStateEnvelope["syncStatus"] = "synced";
+
+  if (opts?.includeRecoveryForRoster && Object.keys(mission.roster).length) {
+    const recoveryManager = new RecoveryManager(ledger, registry);
+    const reports = Object.keys(mission.roster).map((nodeId) =>
+      recoveryManager.recoverNode(nodeId, mission.missionId, mission, nowMs, {
+        localMapCells: opts.recoveryLocalMapCellsByNode?.[nodeId],
+      }),
+    );
+    const aggregateHeadline = reports.map((r) => r.headline).join(" · ");
+    recovery = { reports, aggregateHeadline };
+    syncStatus = recoveryAggregateSyncStatus(reports);
+  }
+
+  if (opts?.allocationTaskType || opts?.allocationTargetCoords) {
+    const taskType = opts.allocationTaskType ?? "explorer";
+    const profiles = buildAllocationProfiles(mission, registry, nowMs, 30_000);
+    const engine = new AllocationEngine();
+    const ranked = engine.scoreForTask(profiles, taskType, scenario, mission, opts.allocationTargetCoords);
+    const top = ranked[0];
+    allocationPreview = top
+      ? {
+          taskType,
+          scenario,
+          ranked: ranked.slice(0, 8),
+          topExplanation: engine.explainAssignment(top, scenario),
+        }
+      : undefined;
+  }
+
   return {
     mission,
     vertex: {
@@ -90,7 +131,9 @@ export function buildTashiStateEnvelope(
     alertStream,
     swarmHealth,
     replayRoot: tail?.eventHash ?? head?.eventHash ?? mission.consensusPointer.lastEventHash,
-    syncStatus: "synced",
+    syncStatus,
+    ...(recovery ? { recovery } : {}),
+    ...(allocationPreview ? { allocationPreview } : {}),
     envelopeVersion: 1,
     capturedAtMs: nowMs,
   };

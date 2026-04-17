@@ -148,6 +148,6 @@ describe("Lattice reputation + scenario budgets", () => {
     const mission = replayMissionFromLedger(ledger.toArray(), missionId);
     const gate = registry.validateScenarioBudget("hazmat", mission, t + 100, 60_000);
     expect(gate.ok).toBe(false);
-    expect(gate.reason).toContain("gas_redundancy");
+    if (gate.ok === false) expect(gate.reason).toContain("gas_redundancy");
   });
 });

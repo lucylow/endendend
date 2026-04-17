@@ -62,7 +62,7 @@ function saveLifetime(n: number) {
 
 export function StakingProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const contractReady = Boolean(STAKING_ADDRESS);
   const demoNoWallet = import.meta.env.DEV && !isConnected;
   const isMockMode = demoNoWallet || !contractReady;
@@ -196,7 +196,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
         setMockTotalStaked((t) => t + amount);
         return;
       }
-      if (!STAKING_ADDRESS || !address) return;
+      if (!STAKING_ADDRESS || !address || !chain) return;
       setTxKind("stake");
       completedOpRef.current = "stake";
       try {
@@ -206,6 +206,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
           functionName: "stake",
           args: [parseEther(String(amount))],
           account: address!,
+          chain,
         });
         setHash(h);
       } catch (err) {
@@ -214,7 +215,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
         toast.error(stakingTxErrorMessage(err));
       }
     },
-    [address, contractReady, demoNoWallet, isConnected, writeContractAsync],
+    [address, chain, contractReady, demoNoWallet, isConnected, writeContractAsync],
   );
 
   const unstake = useCallback(
@@ -227,7 +228,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
         setMockTotalStaked((t) => Math.max(0, t - amount));
         return;
       }
-      if (!STAKING_ADDRESS || !address) return;
+      if (!STAKING_ADDRESS || !address || !chain) return;
       setTxKind("unstake");
       completedOpRef.current = "unstake";
       try {
@@ -237,6 +238,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
           functionName: "unstake",
           args: [parseEther(String(amount))],
           account: address!,
+          chain,
         });
         setHash(h);
       } catch (err) {
@@ -245,7 +247,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
         toast.error(stakingTxErrorMessage(err));
       }
     },
-    [address, contractReady, demoNoWallet, isConnected, writeContractAsync],
+    [address, chain, contractReady, demoNoWallet, isConnected, writeContractAsync],
   );
 
   const claimRewards = useCallback(async () => {
@@ -264,7 +266,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
       setClaimCooldown(60);
       return;
     }
-    if (!STAKING_ADDRESS || !address) return;
+    if (!STAKING_ADDRESS || !address || !chain) return;
     claimAmountRef.current = claimable;
     setTxKind("claim");
     completedOpRef.current = "claim";
@@ -275,6 +277,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
         abi: STAKING_ABI,
         functionName: "claimRewards",
         account: address!,
+        chain,
       });
       setHash(h);
     } catch (err) {
@@ -286,6 +289,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
     }
   }, [
     address,
+    chain,
     claimCooldown,
     contractReady,
     demoNoWallet,

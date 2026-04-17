@@ -8,6 +8,8 @@ export type ReputationDeltaReason =
   | "task_completed"
   | "task_abandoned"
   | "safety_false_alarm"
+  | "safety_warning"
+  | "safety_critical"
   | "vertex_slash_demo";
 
 export function applyReputationDelta(

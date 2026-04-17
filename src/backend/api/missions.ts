@@ -50,7 +50,7 @@ export async function proposeAndCommitPhaseTransition(
   const scenarioGate = latticeScenario ?? mission.scenario;
   if (scenarioGate) {
     const budget = registry.validateScenarioBudget(scenarioGate, mission, nowMs, 30_000);
-    if (!budget.ok) return { ok: false, reason: budget.reason };
+    if (budget.ok === false) return { ok: false, reason: budget.reason };
   }
   const snap = registry.exportSnapshot(nowMs, scenarioGate ?? "collapsed_building");
   const roster = mission.roster;

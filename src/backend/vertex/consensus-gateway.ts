@@ -1,5 +1,6 @@
 import type { MissionPhase } from "@/backend/shared/mission-phases";
 import { validVertexNextPhases } from "@/backend/shared/mission-phases";
+import { EventLogger } from "@/backend/observability/event-logger";
 import { MissionLedger, type ControlPlane, type MissionLedgerEvent } from "./mission-ledger";
 
 export type VertexSuggestion = {
@@ -77,6 +78,7 @@ export async function commitVertexBatch(ledger: MissionLedger, suggestions: Vert
       timestamp: s.timestamp,
       previousHash: ledger.tailHash(),
     });
+    EventLogger.vertexOrdered(ev);
     committed.push(ev);
   }
   return committed;

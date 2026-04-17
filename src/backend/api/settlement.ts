@@ -3,10 +3,13 @@ import { replayMissionFromLedger } from "@/backend/vertex/demo-replay";
 import type { MissionLedger } from "@/backend/vertex/mission-ledger";
 import type { NodeRegistry } from "@/backend/lattice/node-registry";
 import { buildSettlementManifest } from "@/backend/arc/settlement-manifest";
+import { buildRewardManifest, type RewardManifestRecord } from "@/backend/arc/reward-manifest";
 import { anchorManifestSummary, mockEmitArcBridgeTx } from "@/backend/arc/proof-anchor";
+import { EventLogger } from "@/backend/observability/event-logger";
 
 export type ArcSettlementResult = {
   manifest: Awaited<ReturnType<typeof buildSettlementManifest>>;
+  rewardManifest: RewardManifestRecord;
   anchor: { chainRef: string; rootProofHash: string };
   /** Deterministic placeholder until a real Arc / Hedera / EVM submit is wired. */
   mockBridgeTxHash: string;
@@ -32,8 +35,19 @@ export async function sealArcSettlement(
     ledgerRootHash: root,
     outcome: mission.phase === "complete" ? "success" : "aborted",
   });
+  const rewardManifest = await buildRewardManifest(
+    ledger,
+    registry,
+    missionId,
+    nowMs,
+    mission.scenario ?? "collapsed_building",
+  );
   const anchor = await anchorManifestSummary(manifest);
   const mockBridgeTxHash = await mockEmitArcBridgeTx(manifest);
+  EventLogger.settlementQueued(rewardManifest.arcSettlement.txPayloadHash, missionId, {
+    manifestId: manifest.manifestId,
+    rewardMerkleRoot: rewardManifest.verification.merkleProofRoot,
+  });
   await ledger.append({
     missionId,
     actorId: "arc-settlement",
@@ -44,6 +58,9 @@ export async function sealArcSettlement(
       ledgerRootHash: root,
       evidenceBundleHash: manifest.evidenceBundleHash,
       proofMerkleRoot: manifest.arcPayload.proofMerkleRoot,
+      rewardMerkleRoot: rewardManifest.verification.merkleProofRoot,
+      rewardSafetyEvents: rewardManifest.verification.safetyEventsIncluded,
+      rewardTotalPool: rewardManifest.totalPool,
     },
     timestamp: nowMs + 1,
     previousHash: ledger.tailHash(),
@@ -59,6 +76,7 @@ export async function sealArcSettlement(
   });
   return {
     manifest,
+    rewardManifest,
     anchor,
     mockBridgeTxHash,
     envelopePatch: {

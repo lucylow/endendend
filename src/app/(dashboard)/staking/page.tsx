@@ -7,7 +7,6 @@ import { SwarmRewardsMechanism } from "./SwarmRewardsMechanism";
 import { StakingProvider, useStaking } from "./StakingProvider";
 import { Button } from "@/components/ui/button";
 import { Shield, TrendingUp, Wallet, DollarSign, type LucideIcon } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Area,
   AreaChart,
@@ -138,9 +137,6 @@ function WalletBar() {
         <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs text-amber-200 ring-1 ring-amber-500/30">
           Demo mode — set VITE_STAKING_CONTRACT_ADDRESS for live staking
         </span>
-      )}
-      {import.meta.env.DEV && !isConnected && (
-        <span className="text-xs text-muted-foreground">Connect a wallet for live reads; headline stats use dev mocks.</span>
       )}
       <Button type="button" variant="outline" size="sm" onClick={() => disconnect()}>
         Disconnect

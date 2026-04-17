@@ -3,6 +3,7 @@ import { scoreNodeForScenario } from "./capability-scoring";
 import { applyReputationDelta, type ReputationDeltaReason, type ReputationEngine } from "./reputation-engine";
 import type { MissionState, RosterEntry } from "@/backend/shared/mission-state";
 import type { LatticeValidationSnapshot } from "@/backend/shared/tashi-state-envelope";
+import { sha256Hex, stableStringify } from "@/backend/vertex/hash-chain";
 
 export type NodeTelemetry = {
   nodeId: string;
@@ -108,6 +109,10 @@ export class NodeRegistry {
     if (!this.trust.has(entry.nodeId)) this.trust.set(entry.nodeId, 100);
   }
 
+  getTelemetry(nodeId: string): NodeTelemetry | undefined {
+    return this.telemetry.get(nodeId);
+  }
+
   heartbeat(nodeId: string, patch: Partial<Omit<NodeTelemetry, "nodeId">>, nowMs: number): void {
     const prev = this.telemetry.get(nodeId);
     const next: NodeTelemetry = {
@@ -131,6 +136,25 @@ export class NodeRegistry {
     const scores = Object.fromEntries(this.trust);
     const updated = applyReputationDelta(scores, nodeId, delta, reason);
     for (const [k, v] of Object.entries(updated)) this.trust.set(k, v);
+  }
+
+  /** Raw Lattice trust band (0–100) used in settlement manifests and economics copy. */
+  getTrustScore(nodeId: string): number {
+    return this.trust.get(nodeId) ?? 100;
+  }
+
+  /** Deterministic recovery / demo hook: set trust from a normalized ``[0,1]`` score. */
+  setLatticeTrustFrom01(nodeId: string, trust01: number): void {
+    this.trust.set(nodeId, Math.round(Math.max(0, Math.min(1, trust01)) * 100));
+  }
+
+  /**
+   * Deterministic root over a mission-scoped Lattice snapshot (capacity + trust) for Arc
+   * cross-checks against Vertex proof ordering.
+   */
+  async validationRootForMission(missionId: string, nowMs: number, capacityScenario: MissionScenarioKind): Promise<string> {
+    const snap = this.exportSnapshot(nowMs, capacityScenario);
+    return sha256Hex(stableStringify({ missionId, lattice: snap }));
   }
 
   isValidForRole(nodeId: string, role: RosterEntry["role"], staleMs: number, nowMs: number): boolean {
@@ -295,5 +319,33 @@ export class NodeRegistry {
     for (const s of tel?.sensors ?? []) set.add(s.toLowerCase());
     for (const c of roster?.capabilities ?? []) set.add(c.toLowerCase());
     return [...set];
+  }
+
+  /**
+   * Count of other roster nodes that are online and fresh — used by recovery / relay continuity.
+   */
+  getPeerSyncCount(nodeId: string, rosterIds: string[], nowMs: number, staleMs: number): number {
+    let n = 0;
+    for (const id of rosterIds) {
+      if (id === nodeId) continue;
+      const tel = this.telemetry.get(id);
+      if (!tel?.online) continue;
+      if (nowMs - tel.lastSeenMs > staleMs) continue;
+      n++;
+    }
+    return n;
+  }
+
+  /** Latest ``lastSeenMs`` among online peers (0 if none). */
+  lastPeerContactMs(nodeId: string, rosterIds: string[], nowMs: number, staleMs: number): number {
+    let max = 0;
+    for (const id of rosterIds) {
+      if (id === nodeId) continue;
+      const tel = this.telemetry.get(id);
+      if (!tel?.online) continue;
+      if (nowMs - tel.lastSeenMs > staleMs) continue;
+      max = Math.max(max, tel.lastSeenMs);
+    }
+    return max;
   }
 }

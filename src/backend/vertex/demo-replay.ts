@@ -34,6 +34,12 @@ export function replayMissionFromLedger(events: MissionLedgerEvent[], missionId:
   return state;
 }
 
+/** Apply one append-only row to ``MissionState`` (same rules as ``replayMissionFromLedger``). */
+export function applyMissionLedgerEvent(state: MissionState, e: MissionLedgerEvent): MissionState {
+  if (e.missionId !== state.missionId) return state;
+  return applyOne(state, e);
+}
+
 function applyOne(state: MissionState, e: MissionLedgerEvent): MissionState {
   const next = { ...state, updatedAtMs: Math.max(state.updatedAtMs, e.timestamp) };
   next.consensusPointer = {

@@ -48,6 +48,8 @@ describe("SAR Tashi flow", () => {
     const settled = await sealArcSettlement(ledger, registry, missionId, 1_700_000_000_200);
     if ("error" in settled) throw new Error(settled.error);
     expect(settled.manifest.missionId).toBe(missionId);
+    expect(settled.rewardManifest.missionId).toBe(missionId);
+    expect(settled.rewardManifest.arcSettlement.chain).toBe("hedera");
     expect(settled.manifest.evidenceBundleHash).toMatch(/^[a-f0-9]{64}$/);
     expect(settled.manifest.arcPayload.proofMerkleRoot).toMatch(/^[a-f0-9]{64}$/);
     expect(settled.envelopePatch.arc?.evidenceBundleHash).toBe(settled.manifest.evidenceBundleHash);

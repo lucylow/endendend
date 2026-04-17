@@ -25,7 +25,9 @@ export function RewardsCard() {
           </div>
           <div>
             <CardTitle className="text-2xl">Rewards</CardTitle>
-            <p className="text-sm text-muted-foreground">Up to 48% APY from network revenue (display rate)</p>
+            <p className="text-sm text-muted-foreground">
+              Display APY {apy.toFixed(1)}% — illustrative; verify on-chain parameters before committing funds.
+            </p>
           </div>
         </div>
       </CardHeader>
@@ -44,14 +46,25 @@ export function RewardsCard() {
           <Button
             onClick={() => void claimRewards()}
             disabled={!hasRewards || isClaiming || claimCooldown > 0}
-            className="h-14 w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-xl font-bold shadow-lg hover:from-yellow-400 hover:to-orange-400"
+            className="h-14 w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-xl font-bold shadow-lg hover:from-yellow-400 hover:to-orange-400 disabled:opacity-60"
           >
-            {isClaiming ? "Claiming…" : `Claim ${unclaimedRewards.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+            {isClaiming
+              ? "Claiming…"
+              : !hasRewards
+                ? "Nothing to claim yet"
+                : `Claim ${unclaimedRewards.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
           </Button>
 
-          {claimCooldown > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">Next claim in {claimCooldown}s</p>
-          )}
+          {!hasRewards && !isClaiming && claimCooldown === 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Rewards appear here as they accrue. Stake longer or check back after the next settlement window.
+            </p>
+          ) : null}
+          {claimCooldown > 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground tabular-nums" aria-live="polite">
+              Next claim in {claimCooldown}s
+            </p>
+          ) : null}
         </motion.div>
 
         <div className="grid grid-cols-2 gap-4 rounded-xl bg-muted/20 p-4 text-center ring-1 ring-border/40">

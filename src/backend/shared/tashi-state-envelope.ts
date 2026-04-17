@@ -1,5 +1,8 @@
 import type { SettlementManifest } from "@/backend/arc/settlement-manifest";
+import type { AllocationScore } from "@/backend/lattice/allocation-policies";
+import type { RecoveryReport } from "@/backend/recovery/recovery-manager";
 import type { MissionLedgerEvent } from "@/backend/vertex/mission-ledger";
+import type { MissionScenarioKind } from "./mission-scenarios";
 import type { MissionPolicy } from "./mission-policy";
 import type { MissionState } from "./mission-state";
 
@@ -82,6 +85,15 @@ export type TashiStateEnvelope = {
   settlement?: SettlementManifest;
   replayRoot?: string;
   syncStatus?: "synced" | "catching_up" | "stale";
+  /** Vertex SAR recovery semantics for operator dashboards. */
+  recovery?: { reports: RecoveryReport[]; aggregateHeadline: string };
+  /** Deterministic Lattice ranking preview for the active scenario. */
+  allocationPreview?: {
+    taskType: string;
+    scenario: MissionScenarioKind;
+    ranked: AllocationScore[];
+    topExplanation: string;
+  };
   envelopeVersion?: number;
   capturedAtMs?: number;
 };
