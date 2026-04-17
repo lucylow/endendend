@@ -7,7 +7,13 @@ export async function anchorManifestSummary(manifest: SettlementManifest): Promi
   const canon = manifestCanonicalHash(manifest);
   const rootProofHash = await sha256Hex(`arc|${canon}`);
   return {
-    chainRef: "hedera:testnet:placeholder",
+    chainRef: `${manifest.arcPayload.chain}:testnet:placeholder`,
     rootProofHash,
   };
+}
+
+/** Replace with Arc / bridge SDK; stable demo tx id for judges and integration tests. */
+export async function mockEmitArcBridgeTx(manifest: SettlementManifest): Promise<string> {
+  const canon = manifestCanonicalHash(manifest);
+  return sha256Hex(`arc_emit|${canon}`);
 }

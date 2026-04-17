@@ -17,3 +17,19 @@ export async function sha256Hex(input: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+/** Binary Merkle root over leaf digests (hex). Odd levels duplicate the last node. */
+export async function merkleRootHex(leaves: string[]): Promise<string> {
+  if (leaves.length === 0) return sha256Hex("merkle|empty");
+  let level = [...leaves];
+  while (level.length > 1) {
+    const next: string[] = [];
+    for (let i = 0; i < level.length; i += 2) {
+      const left = level[i];
+      const right = i + 1 < level.length ? level[i + 1] : left;
+      next.push(await sha256Hex(`${left}|${right}`));
+    }
+    level = next;
+  }
+  return level[0];
+}

@@ -163,10 +163,16 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
             <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex" asChild>
               <Link to="/dashboard/swarm">Classic viz</Link>
             </Button>
-            <Button variant="secondary" size="sm" className="h-8 gap-1 text-xs" onClick={() => setShowStats((v) => !v)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 gap-1 text-xs"
+              aria-pressed={showStats}
+              aria-label={showStats ? "Hide renderer stats overlay" : "Show renderer stats overlay"}
+              onClick={() => setShowStats((v) => !v)}
+            >
               <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="max-sm:sr-only">{showStats ? "Hide" : "Show"} r3f stats</span>
-              <span className="sm:hidden">{showStats ? "On" : "Off"}</span>
+              <span className="hidden sm:inline">{showStats ? "Hide" : "Show"} r3f stats</span>
             </Button>
           </div>
         </div>
@@ -221,6 +227,7 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
                       className={cn(
                         "w-full text-left rounded-2xl border p-4 transition-all h-full min-h-[140px]",
                         "bg-card/50 hover:bg-card/80 hover:border-primary/40 backdrop-blur-sm",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
                         scenario.slug === s.slug ? "border-primary/60 ring-1 ring-primary/25" : "border-border/80",
                       )}
                     >

@@ -91,4 +91,20 @@ export class NodeRegistry {
       capacityHints: this.capacityScores("collapsed_building", nowMs, 30_000),
     };
   }
+
+  /** Lattice trust normalized to ``[0,1]`` (raw scores default around 0–100). */
+  latticeTrust01(nodeId: string): number {
+    const raw = this.trust.get(nodeId) ?? 100;
+    return Math.min(1, Math.max(0, raw / 100));
+  }
+
+  /** Union of roster capabilities and last-known telemetry sensors (lowercased). */
+  listSensorHints(nodeId: string): string[] {
+    const tel = this.telemetry.get(nodeId);
+    const roster = this.rosterRef[nodeId];
+    const set = new Set<string>();
+    for (const s of tel?.sensors ?? []) set.add(s.toLowerCase());
+    for (const c of roster?.capabilities ?? []) set.add(c.toLowerCase());
+    return [...set];
+  }
 }

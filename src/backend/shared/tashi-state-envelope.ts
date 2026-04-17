@@ -19,6 +19,11 @@ export type ArcSettlementMeta = {
   anchoredAtMs?: number;
   chainRef?: string;
   rootProofHash?: string;
+  evidenceBundleHash?: string;
+  evidenceMerkleRoot?: string;
+  settlementAmount?: string;
+  proofMerkleRoot?: string;
+  mockBridgeTxHash?: string;
 };
 
 /**

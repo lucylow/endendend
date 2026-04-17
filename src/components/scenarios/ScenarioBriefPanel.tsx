@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { ScenarioBrief } from "@/lib/scenarios/scenarioBriefs";
 import { Quote } from "lucide-react";
 
@@ -9,11 +10,17 @@ const rows: { key: keyof Pick<ScenarioBrief, "setup" | "emergentBehavior" | "suc
 ];
 
 export default function ScenarioBriefPanel({ brief }: { brief: ScenarioBrief }) {
+  const headingId = useId().replace(/:/g, "");
   return (
-    <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/25 via-background/40 to-violet-950/20 p-4 backdrop-blur-sm">
+    <section
+      className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/25 via-background/40 to-violet-950/20 p-4 backdrop-blur-sm"
+      aria-labelledby={headingId}
+    >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-foreground tracking-tight">Leaderless scenario brief</h3>
+          <h3 id={headingId} className="text-sm font-semibold text-foreground tracking-tight">
+            Leaderless scenario brief
+          </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             Tashi Vertex + FoxMQ · production-style test narrative (no cloud planner).
           </p>
@@ -52,6 +59,6 @@ export default function ScenarioBriefPanel({ brief }: { brief: ScenarioBrief }) 
           <span>“{brief.judgeQuote}”</span>
         </blockquote>
       ) : null}
-    </div>
+    </section>
   );
 }

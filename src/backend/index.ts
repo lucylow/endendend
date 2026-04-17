@@ -1,6 +1,7 @@
 export * from "./shared/mission-phases";
 export * from "./shared/mission-state";
 export * from "./shared/tashi-mission-map-machine";
+export * from "./shared/tashi-task-bidding-recovery";
 export * from "./shared/tashi-state-envelope";
 export * from "./shared/build-envelope";
 export * from "./vertex/event-types";
@@ -11,6 +12,7 @@ export * from "./lattice/node-registry";
 export * from "./lattice/capability-scoring";
 export * from "./lattice/reputation-engine";
 export * from "./arc/settlement-manifest";
+export * from "./arc/evidence-bundle";
 export * from "./arc/proof-anchor";
 export * from "./api/missions";
 export * from "./api/nodes";

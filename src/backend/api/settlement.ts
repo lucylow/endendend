@@ -1,18 +1,22 @@
 import type { TashiStateEnvelope } from "@/backend/shared/tashi-state-envelope";
 import { replayMissionFromLedger } from "@/backend/vertex/demo-replay";
 import type { MissionLedger } from "@/backend/vertex/mission-ledger";
+import type { NodeRegistry } from "@/backend/lattice/node-registry";
 import { buildSettlementManifest } from "@/backend/arc/settlement-manifest";
-import { anchorManifestSummary } from "@/backend/arc/proof-anchor";
+import { anchorManifestSummary, mockEmitArcBridgeTx } from "@/backend/arc/proof-anchor";
 
 export type ArcSettlementResult = {
-  manifest: ReturnType<typeof buildSettlementManifest>;
+  manifest: Awaited<ReturnType<typeof buildSettlementManifest>>;
   anchor: { chainRef: string; rootProofHash: string };
+  /** Deterministic placeholder until a real Arc / Hedera / EVM submit is wired. */
+  mockBridgeTxHash: string;
   envelopePatch: Pick<TashiStateEnvelope, "arc">;
 };
 
 /** Arc slow-path: only after mission completion (or aborted) for public audit bundle. */
 export async function sealArcSettlement(
   ledger: MissionLedger,
+  registry: NodeRegistry,
   missionId: string,
   nowMs: number,
 ): Promise<ArcSettlementResult | { error: string }> {
@@ -22,19 +26,25 @@ export async function sealArcSettlement(
   }
   const head = ledger.head();
   const root = head?.eventHash ?? "genesis";
-  const manifest = buildSettlementManifest(mission, {
+  const manifest = await buildSettlementManifest(mission, ledger.toArray(), registry, {
     manifestId: `manifest-${missionId}-${nowMs}`,
     sealedAtMs: nowMs,
     ledgerRootHash: root,
     outcome: mission.phase === "complete" ? "success" : "aborted",
   });
   const anchor = await anchorManifestSummary(manifest);
+  const mockBridgeTxHash = await mockEmitArcBridgeTx(manifest);
   await ledger.append({
     missionId,
     actorId: "arc-settlement",
     eventType: "settlement_manifest_sealed",
     plane: "arc",
-    payload: { manifestId: manifest.manifestId, ledgerRootHash: root },
+    payload: {
+      manifestId: manifest.manifestId,
+      ledgerRootHash: root,
+      evidenceBundleHash: manifest.evidenceBundleHash,
+      proofMerkleRoot: manifest.arcPayload.proofMerkleRoot,
+    },
     timestamp: nowMs + 1,
     previousHash: ledger.tailHash(),
   });
@@ -43,19 +53,25 @@ export async function sealArcSettlement(
     actorId: "arc-settlement",
     eventType: "proof_anchored",
     plane: "arc",
-    payload: { chainRef: anchor.chainRef, rootProofHash: anchor.rootProofHash },
+    payload: { chainRef: anchor.chainRef, rootProofHash: anchor.rootProofHash, mockBridgeTxHash },
     timestamp: nowMs + 2,
     previousHash: ledger.tailHash(),
   });
   return {
     manifest,
     anchor,
+    mockBridgeTxHash,
     envelopePatch: {
       arc: {
         manifestId: manifest.manifestId,
         anchoredAtMs: nowMs,
         chainRef: anchor.chainRef,
         rootProofHash: anchor.rootProofHash,
+        evidenceBundleHash: manifest.evidenceBundleHash,
+        evidenceMerkleRoot: manifest.evidenceMerkleRoot,
+        settlementAmount: manifest.arcPayload.settlementAmount,
+        proofMerkleRoot: manifest.arcPayload.proofMerkleRoot,
+        mockBridgeTxHash,
       },
     },
   };

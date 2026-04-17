@@ -96,7 +96,7 @@ export default function ScenarioDemoShell({
               <Button
                 variant={guideOpen ? "default" : "outline"}
                 size="sm"
-                onClick={() => setGuideOpen(true)}
+                onClick={() => setGuideOpen((o) => !o)}
                 className="h-8 gap-1 text-xs"
                 aria-expanded={guideOpen}
                 aria-controls="scenario-walkthrough-sheet"
