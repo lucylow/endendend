@@ -1,7 +1,7 @@
-import type { MissionScenarioKind } from "./capability-scoring";
+import type { MissionScenarioKind } from "@/backend/shared/mission-scenarios";
 import { scoreNodeForScenario } from "./capability-scoring";
-import { applyReputationDelta, type ReputationDeltaReason } from "./reputation-engine";
-import type { RosterEntry } from "@/backend/shared/mission-state";
+import { applyReputationDelta, type ReputationDeltaReason, type ReputationEngine } from "./reputation-engine";
+import type { MissionState, RosterEntry } from "@/backend/shared/mission-state";
 import type { LatticeValidationSnapshot } from "@/backend/shared/tashi-state-envelope";
 
 export type NodeTelemetry = {
@@ -11,6 +11,84 @@ export type NodeTelemetry = {
   batteryReserve: number;
   linkQuality: number;
   sensors: string[];
+};
+
+/** Hard capacity / sensor floors checked by Lattice before Vertex overcommits. */
+export type MissionBudget = {
+  minNodes: number;
+  minRelays: number;
+  minExplorers: number;
+  minExtractors: number;
+  minTriage: number;
+  maxRisk: number;
+  minBatteryReserve: number;
+  requiredSensors: string[];
+  /** For hazmat-style redundancy: minimum nodes that expose ``gas`` (after roster + telemetry merge). */
+  minGasRedundantNodes?: number;
+};
+
+export const SCENARIO_BUDGETS: Record<MissionScenarioKind, MissionBudget> = {
+  collapsed_building: {
+    minNodes: 5,
+    minRelays: 1,
+    minExplorers: 2,
+    minExtractors: 1,
+    minTriage: 1,
+    maxRisk: 0.3,
+    minBatteryReserve: 0.4,
+    requiredSensors: ["thermal", "audio"],
+  },
+  flood_rescue: {
+    minNodes: 6,
+    minRelays: 1,
+    minExplorers: 2,
+    minExtractors: 2,
+    minTriage: 1,
+    maxRisk: 0.4,
+    minBatteryReserve: 0.5,
+    requiredSensors: ["optical"],
+  },
+  hazmat: {
+    minNodes: 5,
+    minRelays: 2,
+    minExplorers: 1,
+    minExtractors: 1,
+    minTriage: 1,
+    maxRisk: 0.1,
+    minBatteryReserve: 0.6,
+    requiredSensors: ["gas", "thermal"],
+    minGasRedundantNodes: 2,
+  },
+  tunnel: {
+    minNodes: 4,
+    minRelays: 2,
+    minExplorers: 2,
+    minExtractors: 0,
+    minTriage: 0,
+    maxRisk: 0.35,
+    minBatteryReserve: 0.35,
+    requiredSensors: [],
+  },
+  wildfire: {
+    minNodes: 4,
+    minRelays: 1,
+    minExplorers: 2,
+    minExtractors: 0,
+    minTriage: 1,
+    maxRisk: 0.45,
+    minBatteryReserve: 0.45,
+    requiredSensors: ["thermal"],
+  },
+  extraction: {
+    minNodes: 3,
+    minRelays: 1,
+    minExplorers: 1,
+    minExtractors: 2,
+    minTriage: 0,
+    maxRisk: 0.4,
+    minBatteryReserve: 0.35,
+    requiredSensors: [],
+  },
 };
 
 export class NodeRegistry {
@@ -66,6 +144,85 @@ export class NodeRegistry {
     return true;
   }
 
+  /**
+   * Lattice budget gate: roster + live telemetry must satisfy scenario floors
+   * before Vertex commits assignments that would overcommit the swarm.
+   */
+  validateScenarioBudget(
+    scenario: MissionScenarioKind,
+    mission: MissionState,
+    nowMs: number,
+    staleMs: number,
+  ): { ok: true } | { ok: false; reason: string } {
+    const budget = SCENARIO_BUDGETS[scenario];
+    const rosterIds = Object.keys(mission.roster);
+
+    const eligible = rosterIds.filter((id) => {
+      const tel = this.telemetry.get(id);
+      if (!tel?.online || nowMs - tel.lastSeenMs > staleMs) return false;
+      if (this.latticeTrust01(id) < 0.3) return false;
+      const minTrust = 1 - budget.maxRisk;
+      if (this.latticeTrust01(id) + 1e-6 < minTrust) return false;
+      if (tel.batteryReserve + 1e-6 < budget.minBatteryReserve) return false;
+      return true;
+    });
+
+    if (eligible.length < budget.minNodes) {
+      return { ok: false, reason: `lattice_budget:min_nodes:${eligible.length}<${budget.minNodes}` };
+    }
+
+    const relays = eligible.filter((id) => {
+      const r = mission.roster[id];
+      return r && (r.role === "relay" || r.capabilities.some((c) => c.toLowerCase().includes("relay")));
+    });
+    const explorers = eligible.filter((id) => {
+      const r = mission.roster[id];
+      return r && (r.role === "explorer" || r.capabilities.some((c) => c.toLowerCase().includes("explorer")));
+    });
+    const extractors = eligible.filter((id) => {
+      const r = mission.roster[id];
+      if (!r) return false;
+      return (
+        r.role === "carrier" ||
+        r.capabilities.some((c) => ["carrier", "winch", "boat"].includes(c.toLowerCase()))
+      );
+    });
+    const triage = eligible.filter((id) => {
+      const r = mission.roster[id];
+      return r && (r.role === "medic" || r.capabilities.some((c) => c.toLowerCase().includes("medic")));
+    });
+
+    if (relays.length < budget.minRelays) return { ok: false, reason: "lattice_budget:relays" };
+    if (explorers.length < budget.minExplorers) return { ok: false, reason: "lattice_budget:explorers" };
+    if (extractors.length < budget.minExtractors) return { ok: false, reason: "lattice_budget:extractors" };
+    if (triage.length < budget.minTriage) return { ok: false, reason: "lattice_budget:triage" };
+
+    for (const sensor of budget.requiredSensors) {
+      const s = sensor.toLowerCase();
+      const covered = eligible.some((id) => this.listSensorHints(id).includes(s));
+      if (!covered) return { ok: false, reason: `lattice_budget:sensor:${sensor}` };
+    }
+
+    const gasNeed = budget.minGasRedundantNodes ?? 0;
+    if (gasNeed > 0) {
+      const gasNodes = eligible.filter((id) => this.listSensorHints(id).includes("gas")).length;
+      if (gasNodes < gasNeed) return { ok: false, reason: "lattice_budget:gas_redundancy" };
+    }
+
+    return { ok: true };
+  }
+
+  /**
+   * Persist ``reputation_update`` rows for every roster node, then mirror scores into the
+   * in-memory trust map (0–100 band used by ``latticeTrust01``).
+   */
+  async syncTrustFromLedgerReputation(missionId: string, engine: ReputationEngine, nowMs: number): Promise<void> {
+    const scores = await engine.getMissionScores(missionId, nowMs);
+    for (const s of scores) {
+      this.trust.set(s.nodeId, Math.round(Math.max(0, Math.min(1, s.finalScore)) * 100));
+    }
+  }
+
   capacityScores(kind: MissionScenarioKind, nowMs: number, staleMs: number): Record<string, number> {
     const out: Record<string, number> = {};
     for (const [id, entry] of Object.entries(this.rosterRef)) {
@@ -79,7 +236,7 @@ export class NodeRegistry {
     return out;
   }
 
-  exportSnapshot(nowMs: number): LatticeValidationSnapshot {
+  exportSnapshot(nowMs: number, capacityScenario: MissionScenarioKind = "collapsed_building"): LatticeValidationSnapshot {
     const onlineNodeIds = [...this.telemetry.entries()]
       .filter(([, v]) => v.online)
       .map(([k]) => k);
@@ -88,7 +245,7 @@ export class NodeRegistry {
       capturedAtMs: nowMs,
       onlineNodeIds,
       trustScores,
-      capacityHints: this.capacityScores("collapsed_building", nowMs, 30_000),
+      capacityHints: this.capacityScores(capacityScenario, nowMs, 30_000),
     };
   }
 

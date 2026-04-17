@@ -2,8 +2,9 @@ import { latticePhaseReadiness, type MissionPhase } from "@/backend/shared/missi
 import { replayMissionFromLedger } from "@/backend/vertex/demo-replay";
 import { commitVertexBatch, suggestPhaseTransition } from "@/backend/vertex/consensus-gateway";
 import { MissionLedger } from "@/backend/vertex/mission-ledger";
+import type { MissionScenarioKind } from "@/backend/shared/mission-scenarios";
 import type { NodeRegistry } from "@/backend/lattice/node-registry";
-import { buildTashiStateEnvelope } from "@/backend/shared/build-envelope";
+import { buildTashiStateEnvelope, type BuildEnvelopeOptions } from "@/backend/shared/build-envelope";
 
 export type MissionBootstrapResult = {
   ledger: MissionLedger;
@@ -15,6 +16,7 @@ export async function bootstrapMission(
   missionId: string,
   actorId: string,
   nowMs: number,
+  opts?: { scenario?: MissionScenarioKind },
 ): Promise<MissionBootstrapResult> {
   const ledger = new MissionLedger();
   const first = await ledger.append({
@@ -22,7 +24,11 @@ export async function bootstrapMission(
     actorId,
     eventType: "mission_created",
     plane: "vertex",
-    payload: { phase: "init", name: missionId },
+    payload: {
+      phase: "init",
+      name: missionId,
+      ...(opts?.scenario ? { scenario: opts.scenario } : {}),
+    },
     timestamp: nowMs,
     previousHash: ledger.tailHash(),
   });
@@ -36,10 +42,17 @@ export async function proposeAndCommitPhaseTransition(
   actorId: string,
   toPhase: MissionPhase,
   nowMs: number,
+  /** When set, Lattice enforces scenario capacity floors before Vertex commits the phase hop. */
+  latticeScenario?: MissionScenarioKind,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const mission = replayMissionFromLedger(ledger.toArray(), missionId);
   const fromPhase: MissionPhase = mission.phase;
-  const snap = registry.exportSnapshot(nowMs);
+  const scenarioGate = latticeScenario ?? mission.scenario;
+  if (scenarioGate) {
+    const budget = registry.validateScenarioBudget(scenarioGate, mission, nowMs, 30_000);
+    if (!budget.ok) return { ok: false, reason: budget.reason };
+  }
+  const snap = registry.exportSnapshot(nowMs, scenarioGate ?? "collapsed_building");
   const roster = mission.roster;
   const ctx = {
     peerCount: Math.max(Object.keys(roster).length, snap.onlineNodeIds.length),
@@ -56,7 +69,13 @@ export async function proposeAndCommitPhaseTransition(
   return { ok: true };
 }
 
-export function missionEnvelopeView(ledger: MissionLedger, registry: NodeRegistry, missionId: string, nowMs: number) {
+export function missionEnvelopeView(
+  ledger: MissionLedger,
+  registry: NodeRegistry,
+  missionId: string,
+  nowMs: number,
+  opts?: BuildEnvelopeOptions,
+) {
   const mission = replayMissionFromLedger(ledger.toArray(), missionId);
-  return buildTashiStateEnvelope(mission, ledger, registry, nowMs);
+  return buildTashiStateEnvelope(mission, ledger, registry, nowMs, opts);
 }

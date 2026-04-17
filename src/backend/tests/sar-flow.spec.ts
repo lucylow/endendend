@@ -40,14 +40,21 @@ describe("SAR Tashi flow", () => {
     expect(mission.roster["uav-1"]?.role).toBe("carrier");
 
     const env = missionEnvelopeView(ledger, registry, missionId, 1_700_000_000_100);
+    expect(env.policy).toBeUndefined();
     const sar = sarProjectionFromEnvelope(env);
     expect(sar.missionPhase).toBe("complete");
     expect(sar.vertexSequence).toBeGreaterThan(0);
 
-    const settled = await sealArcSettlement(ledger, missionId, 1_700_000_000_200);
+    const settled = await sealArcSettlement(ledger, registry, missionId, 1_700_000_000_200);
     if ("error" in settled) throw new Error(settled.error);
     expect(settled.manifest.missionId).toBe(missionId);
+    expect(settled.manifest.evidenceBundleHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(settled.manifest.arcPayload.proofMerkleRoot).toMatch(/^[a-f0-9]{64}$/);
+    expect(settled.envelopePatch.arc?.evidenceBundleHash).toBe(settled.manifest.evidenceBundleHash);
     expect(settled.anchor.rootProofHash.length).toBe(64);
+    expect(settled.mockBridgeTxHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(settled.envelopePatch.arc?.mockBridgeTxHash).toBe(settled.mockBridgeTxHash);
+    expect(settled.envelopePatch.settlement?.manifestId).toBe(settled.manifest.manifestId);
     expect(await ledger.verifyChain()).toEqual({ ok: true });
   });
 });

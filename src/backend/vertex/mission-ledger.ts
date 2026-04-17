@@ -45,6 +45,24 @@ export class MissionLedger {
     return this.head()?.eventHash ?? "genesis";
   }
 
+  /** All events for a mission id (append order). */
+  eventsForMission(missionId: string): MissionLedgerEvent[] {
+    return this.events.filter((e) => e.missionId === missionId);
+  }
+
+  /**
+   * Events scoped to a node for reputation / replay: ``actorId`` matches or ``payload.nodeId`` matches.
+   */
+  eventsForNodeInMission(nodeId: string, missionId: string): MissionLedgerEvent[] {
+    return this.events.filter((e) => {
+      if (e.missionId !== missionId) return false;
+      if (e.actorId === nodeId) return true;
+      const nid = e.payload?.nodeId;
+      if (typeof nid === "string" && nid === nodeId) return true;
+      return false;
+    });
+  }
+
   async append(input: AppendMissionEventInput): Promise<MissionLedgerEvent> {
     const prev = input.previousHash;
     const core = {
