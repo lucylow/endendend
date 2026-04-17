@@ -3,7 +3,7 @@ import {
   FOXMQ_CAS_MAX_ATTEMPTS,
   FOXMQ_WORLD_MAP_KEY,
 } from "@/config/foxmq";
-import type { FoxMQClient } from "@/lib/foxmqClient";
+import type { FoxMQClient } from "@/lib/foxmq";
 import type { GridCell } from "@/types";
 
 const log = (...args: unknown[]) => {

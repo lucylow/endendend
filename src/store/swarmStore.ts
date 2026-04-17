@@ -5,7 +5,7 @@ import type {
   BlindHandoffOverlayState,
 } from "@/types";
 import type { EdgeLatencyUpdate, SwarmStatusUpdate, WsConnectionState } from "@/types/websocket";
-import { FoxMQClient, createDroneNodeId } from "@/lib/foxmqClient";
+import { FoxMQClient, createDroneNodeId } from "@/lib/foxmq";
 import {
   ExplorationManager,
   applyExploredKeysToGrid,

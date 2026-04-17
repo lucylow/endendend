@@ -9,4 +9,5 @@ __all__ = [
     "target_manager",
     "network_emulator",
     "network_simulator",
+    "foxmq_integration",
 ]
