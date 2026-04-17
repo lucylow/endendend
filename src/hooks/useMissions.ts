@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { toast } from "sonner";
 
 export function useMissions() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  /** Each hook instance needs its own Realtime channel name — reusing the same name returns one channel and a second `.on()` after `subscribe()` throws. */
+  const realtimeChannelId = useId().replace(/:/g, "");
 
   const query = useQuery({
     queryKey: ["missions"],
@@ -22,16 +24,18 @@ export function useMissions() {
     enabled: !!user,
   });
 
-  // Realtime subscription
   useEffect(() => {
+    if (!user) return;
     const channel = supabase
-      .channel("missions-realtime")
+      .channel(`missions-realtime-${realtimeChannelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "missions" }, () => {
         queryClient.invalidateQueries({ queryKey: ["missions"] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, queryClient, realtimeChannelId]);
 
   const createMission = useMutation({
     mutationFn: async (input: { title: string; description?: string; mission_type?: string; priority?: string; location?: string }) => {
