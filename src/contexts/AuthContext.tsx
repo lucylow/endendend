@@ -30,8 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         setTimeout(() => {
-          fetchProfile(s.user.id);
-          fetchRoles(s.user.id);
+          void fetchProfile(s.user.id);
+          void fetchRoles(s.user.id);
         }, 0);
       } else {
         setProfile(null);
@@ -39,31 +39,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        fetchProfile(s.user.id);
-        fetchRoles(s.user.id);
-      }
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: s }, error }) => {
+        if (error) {
+          if (import.meta.env.DEV) console.warn("[auth] getSession", error.message);
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setRoles([]);
+          return;
+        }
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          void fetchProfile(s.user.id);
+          void fetchRoles(s.user.id);
+        }
+      })
+      .catch((err) => {
+        if (import.meta.env.DEV) console.error("[auth] getSession failed", err);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setRoles([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     return () => subscription.unsubscribe();
   }, []);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase.from("profiles").select("display_name, call_sign, team, avatar_url, region").eq("user_id", userId).single();
-    if (data) setProfile(data);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("display_name, call_sign, team, avatar_url, region")
+      .eq("user_id", userId)
+      .single();
+    if (error) {
+      if (error.code !== "PGRST116" && import.meta.env.DEV) {
+        console.warn("[auth] profile load failed", error.message);
+      }
+      setProfile(null);
+      return;
+    }
+    setProfile(data);
   }
 
   async function fetchRoles(userId: string) {
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    if (data) setRoles(data.map((r) => r.role));
+    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    if (error) {
+      if (import.meta.env.DEV) console.warn("[auth] roles load failed", error.message);
+      setRoles([]);
+      return;
+    }
+    setRoles((data ?? []).map((r) => r.role));
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error && import.meta.env.DEV) console.warn("[auth] signOut", error.message);
     setSession(null);
     setUser(null);
     setProfile(null);

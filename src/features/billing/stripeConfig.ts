@@ -54,3 +54,19 @@ export function billingFetchPath(path: string): string {
   const b = billingApiBase();
   return b ? `${b}${path}` : path;
 }
+
+/**
+ * Parse JSON from a fetch Response. Handles empty bodies and non-JSON error pages
+ * (e.g. HTML from a crashed proxy) without throwing.
+ */
+export async function parseJsonResponse<T extends Record<string, unknown> = Record<string, unknown>>(
+  res: Response,
+): Promise<T> {
+  try {
+    const text = await res.text();
+    if (!text.trim()) return {} as T;
+    return JSON.parse(text) as T;
+  } catch {
+    return {} as T;
+  }
+}

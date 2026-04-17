@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBilling } from "@/features/billing/useBilling";
-import { billingFetchPath } from "@/features/billing/stripeConfig";
+import { billingFetchPath, parseJsonResponse } from "@/features/billing/stripeConfig";
 import { toast } from "sonner";
 
 const pk = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "";
@@ -29,6 +29,9 @@ function InnerPaymentForm() {
       });
       if (error) toast.error(error.message ?? "Setup failed");
       else toast.success("Payment method saved");
+    } catch (err) {
+      if (import.meta.env.DEV) console.error("[billing] confirmSetup", err);
+      toast.error(err instanceof Error ? err.message : "Setup failed unexpectedly");
     } finally {
       setBusy(false);
     }
@@ -63,14 +66,21 @@ export function PaymentForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ customerId }),
         });
-        const data = (await res.json()) as { clientSecret?: string; error?: string };
+        const data = await parseJsonResponse<{ clientSecret?: string; error?: string }>(res);
         if (!res.ok) {
-          if (!cancelled) toast.error(data.error ?? "Could not start card setup");
+          if (!cancelled) toast.error(typeof data.error === "string" ? data.error : "Could not start card setup");
           return;
         }
-        if (!cancelled && data.clientSecret) setClientSecret(data.clientSecret);
-      } catch {
-        if (!cancelled) toast.error("Network error");
+        if (!data.clientSecret) {
+          if (!cancelled) toast.error("No client secret returned from billing API");
+          return;
+        }
+        if (!cancelled) setClientSecret(data.clientSecret);
+      } catch (err) {
+        if (import.meta.env.DEV) console.error("[billing] setup-intent", err);
+        if (!cancelled) {
+          toast.error(err instanceof TypeError ? "Network error" : err instanceof Error ? err.message : "Could not start card setup");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

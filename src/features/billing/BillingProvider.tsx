@@ -13,6 +13,7 @@ import {
   billingFetchPath,
   clearStoredCustomerId,
   getStoredCustomerId,
+  parseJsonResponse,
   setStoredCustomerId,
   subscriptionTier,
 } from "./stripeConfig";
@@ -21,12 +22,11 @@ const BillingContext = createContext<BillingContextValue | null>(null);
 
 const hasPublishableKey = Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-async function parseJsonSafe(res: Response): Promise<{ error?: string; [k: string]: unknown }> {
-  try {
-    return (await res.json()) as { error?: string; [k: string]: unknown };
-  } catch {
-    return {};
+function networkErrorMessage(err: unknown): string {
+  if (err instanceof TypeError && err.message.includes("fetch")) {
+    return "Network error — check your connection or billing API URL.";
   }
+  return err instanceof Error ? err.message : "Unexpected error";
 }
 
 export function BillingProvider({ children }: { children: ReactNode }) {
@@ -49,7 +49,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       const url = `${billingFetchPath("/api/billing/subscription")}?customerId=${encodeURIComponent(id)}`;
       const res = await fetch(url);
-      const data = await parseJsonSafe(res);
+      const data = await parseJsonResponse(res);
       if (!res.ok) {
         if (res.status === 503) setBillingApiConfigured(false);
         setError(typeof data.error === "string" ? data.error : "Failed to load subscription");
@@ -59,8 +59,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       setBillingApiConfigured(true);
       const sub = data.subscription as BillingSubscription | null | undefined;
       setSubscription(sub ?? null);
-    } catch {
-      setError("Network error loading subscription");
+    } catch (err) {
+      if (import.meta.env.DEV) console.error("[billing] refreshSubscription", err);
+      setError(networkErrorMessage(err));
       setSubscription(null);
     } finally {
       setIsLoading(false);
@@ -84,7 +85,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           cancelUrl: `${origin}/dashboard/billing`,
         }),
       });
-      const data = await parseJsonSafe(res);
+      const data = await parseJsonResponse(res);
       if (!res.ok) {
         const msg = typeof data.error === "string" ? data.error : "Checkout failed";
         toast.error(msg);
@@ -94,8 +95,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       const url = data.url as string | undefined;
       if (url) window.location.href = url;
       else toast.error("No checkout URL returned");
-    } catch {
-      toast.error("Could not start checkout");
+    } catch (err) {
+      if (import.meta.env.DEV) console.error("[billing] checkout", err);
+      toast.error(networkErrorMessage(err));
     }
   }, []);
 
@@ -116,16 +118,18 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           returnUrl: `${origin}/dashboard/billing`,
         }),
       });
-      const data = await parseJsonSafe(res);
+      const data = await parseJsonResponse(res);
       if (!res.ok) {
         toast.error(typeof data.error === "string" ? data.error : "Portal failed");
+        if (res.status === 503) setBillingApiConfigured(false);
         return;
       }
       const url = data.url as string | undefined;
       if (url) window.location.href = url;
       else toast.error("No portal URL returned");
-    } catch {
-      toast.error("Could not open billing portal");
+    } catch (err) {
+      if (import.meta.env.DEV) console.error("[billing] portal", err);
+      toast.error(networkErrorMessage(err));
     }
   }, []);
 
@@ -138,9 +142,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId }),
         });
-        const data = await parseJsonSafe(res);
+        const data = await parseJsonResponse(res);
         if (!res.ok) {
           toast.error(typeof data.error === "string" ? data.error : "Could not confirm checkout");
+          if (res.status === 503) setBillingApiConfigured(false);
           return;
         }
         const cid = data.customerId as string | undefined;
@@ -151,8 +156,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         const sub = data.subscription as BillingSubscription | null | undefined;
         setSubscription(sub ?? null);
         toast.success("Subscription synced");
-      } catch {
-        toast.error("Could not sync checkout session");
+      } catch (err) {
+        if (import.meta.env.DEV) console.error("[billing] sync-session", err);
+        toast.error(networkErrorMessage(err));
       }
     },
     [],

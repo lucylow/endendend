@@ -70,7 +70,14 @@ function subscriptionPayload(sub) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+  let url;
+  try {
+    const host = req.headers.host ?? "127.0.0.1";
+    url = new URL(req.url ?? "/", `http://${host}`);
+  } catch {
+    json(res, 400, { error: "Invalid request URL" });
+    return;
+  }
 
   if (!stripe) {
     if (url.pathname.startsWith("/api/billing") || url.pathname.startsWith("/api/stripe")) {
@@ -229,9 +236,15 @@ const server = http.createServer(async (req, res) => {
 
     json(res, 404, { error: "Not found" });
   } catch (err) {
+    console.error("[billing-server]", err);
     const message = err instanceof Error ? err.message : "Server error";
     json(res, 500, { error: message });
   }
+});
+
+server.on("error", (err) => {
+  console.error("[billing-server] listen error", err);
+  process.exitCode = 1;
 });
 
 server.listen(PORT, () => {
