@@ -3,7 +3,7 @@ import CollapsingTunnelScenario from "@/scenarios/collapsing-tunnel/CollapsingTu
 
 export default function CollapsingTunnelDemo() {
   return (
-    <ScenarioDemoShell slug="collapsing-tunnel" bgClass="bg-zinc-950">
+    <ScenarioDemoShell slug="collapsing-tunnel" registrySlug="tunnel-collapse" bgClass="bg-zinc-950">
       <CollapsingTunnelScenario />
     </ScenarioDemoShell>
   );

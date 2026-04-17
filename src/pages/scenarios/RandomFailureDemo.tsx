@@ -3,7 +3,7 @@ import RandomFailureScenario from "@/scenarios/random-failure/RandomFailureScena
 
 export default function RandomFailureDemo() {
   return (
-    <ScenarioDemoShell slug="random-failure" sarLink="/dashboard/scenarios">
+    <ScenarioDemoShell slug="random-failure" sarLink="/scenarios/search-rescue/random-failure">
       <RandomFailureScenario />
     </ScenarioDemoShell>
   );

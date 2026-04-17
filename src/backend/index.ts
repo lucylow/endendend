@@ -1,5 +1,6 @@
 export * from "./shared/mission-phases";
 export * from "./shared/mission-state";
+export * from "./shared/tashi-mission-map-machine";
 export * from "./shared/tashi-state-envelope";
 export * from "./shared/build-envelope";
 export * from "./vertex/event-types";

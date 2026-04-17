@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import ScenarioWalkthroughPanel from "@/components/scenarios/ScenarioWalkthroughPanel";
 import { getScenarioWalkthrough } from "@/lib/scenarios/scenarioWalkthroughs";
@@ -51,6 +51,8 @@ export default function SearchRescueDemo() {
 
 function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition }) {
   const navigate = useNavigate();
+  const mainRegionId = useId();
+  const mainDomId = `sar-demo-main-${mainRegionId.replace(/:/g, "")}`;
 
   const chaosLevel = useScenarioOrchestratorStore((s) => s.chaosLevel);
   const setChaosLevel = useScenarioOrchestratorStore((s) => s.setChaosLevel);
@@ -124,29 +126,47 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+      <a
+        href={`#${mainDomId}`}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg"
+      >
+        Skip to scenario content
+      </a>
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm shrink-0">
-              <LifeBuoy className="h-4 w-4 text-primary" />
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <Link
+              to="/"
+              className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <LifeBuoy className="h-4 w-4 text-primary" aria-hidden />
               Home
             </Link>
-            <span className="text-border hidden sm:inline">|</span>
-            <span className="truncate font-semibold text-sm sm:text-base">
-              <span className="text-primary">Vertex</span> Swarm SAR
-            </span>
-            <Badge variant="outline" className="hidden md:inline-flex font-mono text-[10px] border-emerald-500/40 text-emerald-400">
+            <span className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden />
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-sm sm:text-base">
+                <span className="text-primary">Vertex</span> Swarm SAR
+              </div>
+              <p className="truncate text-xs text-muted-foreground sm:hidden">
+                {scenario.emoji} {scenario.name}
+              </p>
+            </div>
+            <Badge variant="outline" className="hidden shrink-0 font-mono text-[10px] border-emerald-500/40 text-emerald-400 md:inline-flex">
               16 scenarios
             </Badge>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {scenario.slug === "multi-swarm-handoff" ? <HandoverControls /> : null}
-            <Button variant="outline" size="sm" className="hidden sm:inline-flex text-xs" asChild>
+            <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex" asChild>
+              <Link to="/dashboard/scenarios">Scenario index</Link>
+            </Button>
+            <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex" asChild>
               <Link to="/dashboard/swarm">Classic viz</Link>
             </Button>
-            <Button variant="secondary" size="sm" className="text-xs gap-1" onClick={() => setShowStats((v) => !v)}>
-              <Radio className="h-3.5 w-3.5" />
-              {showStats ? "Hide" : "Show"} r3f stats
+            <Button variant="secondary" size="sm" className="h-8 gap-1 text-xs" onClick={() => setShowStats((v) => !v)}>
+              <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="max-sm:sr-only">{showStats ? "Hide" : "Show"} r3f stats</span>
+              <span className="sm:hidden">{showStats ? "On" : "Off"}</span>
             </Button>
           </div>
         </div>
@@ -181,6 +201,11 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
         </div>
       </section>
 
+      <main
+        id={mainDomId}
+        tabIndex={-1}
+        className="outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+      >
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6">
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-1">Scenario carousel</h2>
@@ -463,6 +488,7 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
           </p>
         </footer>
       </div>
+      </main>
     </div>
   );
 }
