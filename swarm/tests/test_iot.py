@@ -11,6 +11,7 @@ from swarm.iot import (
     IoTEnvelope,
     IoTEnvelopeGuard,
     IoTSigner,
+    IoTTopicBuilder,
     MissionAllocation,
     SwarmIoTBridge,
     current_time_ms,
@@ -51,6 +52,31 @@ class TestMissionAllocationSerialization(unittest.TestCase):
         a = MissionAllocation(mission_id="m", target_id="t", assigned_device="d", score=1.0, reason="ok")
         self.assertFalse(hasattr(a, "__dict__"))
         self.assertEqual(asdict(a)["mission_id"], "m")
+
+
+class TestIoTTopicBuilder(unittest.TestCase):
+    def test_device_telemetry_paths(self) -> None:
+        b = IoTTopicBuilder("alpha")
+        self.assertEqual(b.telemetry("d1"), "swarm/alpha/iot/device/d1/telemetry")
+        self.assertTrue(topic_matches(f"{b.base()}/device/+/telemetry", b.telemetry("d1")))
+
+
+class TestEnvelopeGuardDedup(unittest.TestCase):
+    def test_replay_rejected_when_dedup_enabled(self) -> None:
+        signer = IoTSigner(b"\x03" * 32)
+        guard = IoTEnvelopeGuard(signer, dedup_max=100)
+        env = IoTEnvelope(
+            message_id="once",
+            device_id="d",
+            topic="t",
+            kind="k",
+            payload={},
+            ts_ms=current_time_ms(),
+            signature=None,
+        )
+        env.signature = signer.sign(env)
+        self.assertTrue(guard.verify(env))
+        self.assertFalse(guard.verify(env))
 
 
 class TestSmokeDemo(unittest.TestCase):
