@@ -1,5 +1,4 @@
-import type { MissionScenarioKind } from "./mission-scenarios";
-import { coerceMissionScenarioKind } from "./mission-scenarios";
+import { coerceMissionScenarioKind, type MissionScenarioKind } from "./mission-scenarios";
 
 export type PolicyRoleType = "explorer" | "relay" | "triage" | "extractor" | "transport";
 

@@ -255,6 +255,38 @@ export class NodeRegistry {
     return Math.min(1, Math.max(0, raw / 100));
   }
 
+  /**
+   * Roster-scoped health for envelopes: online per heartbeat window, mean trust,
+   * nodes under a battery floor.
+   */
+  swarmHealthSummary(
+    mission: MissionState,
+    nowMs: number,
+    staleMs: number,
+    batteryCriticalBelow: number,
+  ): { onlineNodes: number; avgReputation: number; batteryCritical: number } {
+    const ids = Object.keys(mission.roster);
+    if (!ids.length) return { onlineNodes: 0, avgReputation: 0, batteryCritical: 0 };
+    let online = 0;
+    let repSum = 0;
+    let batteryCrit = 0;
+    for (const id of ids) {
+      const tel = this.telemetry.get(id);
+      const fresh = tel?.online === true && nowMs - (tel.lastSeenMs ?? 0) <= staleMs;
+      const trust = this.latticeTrust01(id);
+      repSum += trust;
+      if (fresh) {
+        online++;
+        if ((tel?.batteryReserve ?? 0) < batteryCriticalBelow) batteryCrit++;
+      }
+    }
+    return {
+      onlineNodes: online,
+      avgReputation: repSum / ids.length,
+      batteryCritical: batteryCrit,
+    };
+  }
+
   /** Union of roster capabilities and last-known telemetry sensors (lowercased). */
   listSensorHints(nodeId: string): string[] {
     const tel = this.telemetry.get(nodeId);
