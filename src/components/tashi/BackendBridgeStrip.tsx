@@ -61,6 +61,7 @@ export default function BackendBridgeStrip({ pollMs = 8000, className }: Props) 
 
   const mesh = snap?.tashi?.mesh;
   const chainV = snap?.tashi?.chainHint?.monotonicMeshVersion ?? mesh?.version;
+  const sar = snap?.tashi?.sar;
 
   return (
     <div
@@ -100,6 +101,11 @@ export default function BackendBridgeStrip({ pollMs = 8000, className }: Props) 
       {snap?.missions?.length != null && (
         <span>
           snapshot missions <span className="text-foreground">{snap.missions.length}</span>
+        </span>
+      )}
+      {sar?.missionPhase != null && sar.missionPhase !== "" && (
+        <span>
+          SAR phase <span className="text-foreground">{String(sar.missionPhase)}</span>
         </span>
       )}
       {err && <span className="text-destructive truncate max-w-[200px]">{err}</span>}

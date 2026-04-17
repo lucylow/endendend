@@ -26,6 +26,16 @@ export type SwarmTashiProjection = {
   };
   missionsBrief: Array<{ mission_id: string; name: string; status: string }>;
   historyTail: Array<Record<string, unknown>>;
+  /**
+   * Optional SAR control-plane projection (Vertex ledger + Lattice snapshot).
+   * Omitted when the mesh gateway does not emit it — keeps Lovable / older clients compatible.
+   */
+  sar?: {
+    missionPhase?: string;
+    ledgerHead?: string;
+    vertexSequence?: number;
+    latticeOnline?: number;
+  } & Record<string, unknown>;
 };
 
 export type SwarmBackendSnapshot = {
