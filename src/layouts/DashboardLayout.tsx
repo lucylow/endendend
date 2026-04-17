@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import MissionStatusStrip from "@/components/MissionStatusStrip";
+import { DashboardProtocolBar } from "@/components/DashboardProtocolBar";
 import {
   LayoutDashboard,
   BarChart3,
@@ -39,6 +40,14 @@ type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 
 const navGroups: { label: string; items: NavItem[] }[] = [
   {
+    label: "Protocol",
+    items: [
+      { to: "/dashboard/staking", label: "Staking & rewards", icon: DollarSign },
+      { to: "/dashboard/auctions", label: "Task auctions", icon: Gavel },
+      { to: "/dashboard/billing", label: "Billing", icon: CreditCard },
+    ],
+  },
+  {
     label: "Command",
     items: [
       { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
@@ -47,14 +56,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { to: "/dashboard/victim-detection", label: "Victim detection", icon: ScanEye },
       { to: "/dashboard/scalability", label: "Scalability", icon: Activity },
       { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Economy",
-    items: [
-      { to: "/dashboard/auctions", label: "Task auctions", icon: Gavel },
-      { to: "/dashboard/staking", label: "Staking & Rewards", icon: DollarSign },
-      { to: "/dashboard/billing", label: "Billing", icon: CreditCard },
     ],
   },
   {
@@ -94,11 +95,11 @@ function SidebarBrand() {
         </div>
         <div className="min-w-0">
           <h2 className="truncate font-semibold text-foreground tracking-tight">Tashi Swarm</h2>
-          <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Control Center</p>
+          <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">dApp · Control</p>
         </div>
       </Link>
       <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-        Production swarm <span className="font-mono text-foreground/80">#ALPHA-01</span> — Vertex mesh + FoxMQ telemetry.
+        On-chain staking + off-chain mesh. Swarm <span className="font-mono text-foreground/80">#ALPHA-01</span> · Vertex + FoxMQ.
       </p>
     </div>
   );
@@ -169,7 +170,7 @@ export default function DashboardLayout() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md lg:hidden">
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md lg:hidden">
             <SheetTrigger asChild>
               <Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label="Open navigation menu">
                 <Menu className="h-5 w-5" />
@@ -182,11 +183,15 @@ export default function DashboardLayout() {
               <div className="min-w-0 text-left">
                 <span className="block truncate text-sm font-semibold text-foreground">Tashi Swarm</span>
                 <span className="block truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Control Center
+                  dApp · Control
                 </span>
               </div>
             </Link>
+            <DashboardProtocolBar compact />
           </header>
+          <div className="border-b border-border bg-background/80 px-3 py-2 backdrop-blur-md lg:hidden">
+            <MissionStatusStrip />
+          </div>
           <SheetContent side="left" className="w-[min(100%,18rem)] gap-0 border-border p-0">
             <SheetTitle className="sr-only">Dashboard navigation</SheetTitle>
             <div className="flex h-full min-h-0 flex-col pt-12">
@@ -196,8 +201,13 @@ export default function DashboardLayout() {
           </SheetContent>
         </Sheet>
 
-        <div className="sticky top-0 z-20 hidden lg:block border-b border-border bg-background/85 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-2">
-          <MissionStatusStrip />
+        <div className="sticky top-0 z-20 hidden lg:block border-b border-border bg-background/90 backdrop-blur-md">
+          <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 py-2">
+            <div className="min-w-0 flex-1">
+              <MissionStatusStrip />
+            </div>
+            <DashboardProtocolBar />
+          </div>
         </div>
 
         <main
