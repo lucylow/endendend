@@ -26,6 +26,7 @@ export default tseslint.config(
   {
     files: [
       "src/components/ui/**/*.{ts,tsx}",
+      "**/AuthContext.tsx",
       "**/BillingProvider.tsx",
       "**/StakingProvider.tsx",
       "src/scenarios/battery-cascade/BatteryVisualizer3D.tsx",

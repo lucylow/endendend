@@ -1,8 +1,10 @@
-"""IoT helpers for drone swarm telemetry and commands (FoxMQ / Vertex-friendly).
+"""IoT features for a drone swarm (FoxMQ / Vertex-friendly).
 
-Provides signed envelopes, MQTT-style topic helpers, a small device registry,
-offline publish buffering, and a bridge that can sit alongside
-``swarm.foxmq_integration`` without replacing swarm control code.
+Telemetry ingestion, signed envelopes, device registry and capability hints,
+sensor fusion, geofencing and safety signals, battery-aware allocation helpers,
+health rollups, offline buffering, and MQTT-style topics. Intended to sit
+beside ``swarm.foxmq_integration`` and higher-level controllers without
+replacing them.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import random
 import threading
 import time
@@ -18,7 +21,12 @@ from collections import defaultdict, deque
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, DefaultDict, Deque, Mapping
+from typing import Any, Callable, DefaultDict, Deque, Mapping, Sequence
+
+try:  # pragma: no cover - optional dependency
+    import paho.mqtt.client as mqtt
+except Exception:  # pragma: no cover - optional dependency
+    mqtt = None  # type: ignore[assignment,misc]
 
 LOG = logging.getLogger(__name__)
 
@@ -29,6 +37,18 @@ def current_time_ms() -> int:
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
+
+
+def euclidean_distance(a: Mapping[str, float], b: Mapping[str, float]) -> float:
+    ax, ay, az = float(a.get("x", 0.0)), float(a.get("y", 0.0)), float(a.get("z", 0.0))
+    bx, by, bz = float(b.get("x", 0.0)), float(b.get("y", 0.0)), float(b.get("z", 0.0))
+    return math.sqrt((ax - bx) ** 2 + (ay - by) ** 2 + (az - bz) ** 2)
+
+
+def manhattan_distance(a: Mapping[str, float], b: Mapping[str, float]) -> float:
+    ax, ay, az = float(a.get("x", 0.0)), float(a.get("y", 0.0)), float(a.get("z", 0.0))
+    bx, by, bz = float(b.get("x", 0.0)), float(b.get("y", 0.0)), float(b.get("z", 0.0))
+    return abs(ax - bx) + abs(ay - by) + abs(az - bz)
 
 
 def topic_matches(pattern: str, topic: str) -> bool:
@@ -59,12 +79,32 @@ class IoTTopic(str, Enum):
     """Relative topic segments under ``swarm/{swarm_id}/`` (see :class:`IoTTopicBuilder`)."""
 
     TELEMETRY = "iot/telemetry"
+    TELEMETRY_RAW = "iot/telemetry/raw"
+    TELEMETRY_AGG = "iot/telemetry/agg"
     COMMAND = "iot/command"
+    COMMAND_ACK = "iot/command/ack"
     COMMAND_RESULT = "iot/command/result"
+    SENSOR = "iot/sensor"
+    SENSOR_FUSION = "iot/sensor/fusion"
     HEALTH = "iot/health"
     REGISTRY = "iot/registry"
     GEOFENCE = "iot/geofence"
+    SAFETY = "iot/safety"
+    MISSION = "iot/mission"
+    MISSION_EVENT = "iot/mission/event"
     ALERTS = "iot/alerts"
+    PAYLOAD = "iot/payload"
+    ACTUATOR = "iot/actuator"
+
+
+class DeviceType(str, Enum):
+    DRONE = "drone"
+    ROVER = "rover"
+    STATION = "station"
+    RELAY = "relay"
+    CAMERA = "camera"
+    SENSOR_NODE = "sensor_node"
+    GATEWAY = "gateway"
 
 
 class CommandType(str, Enum):
@@ -72,9 +112,43 @@ class CommandType(str, Enum):
     LAND = "land"
     HOVER = "hover"
     GOTO = "goto"
+    SET_SPEED = "set_speed"
+    SET_ALTITUDE = "set_altitude"
+    STREAM_ON = "stream_on"
+    STREAM_OFF = "stream_off"
+    LIGHT_ON = "light_on"
+    LIGHT_OFF = "light_off"
+    BUZZER_ON = "buzzer_on"
+    BUZZER_OFF = "buzzer_off"
+    GRIP_OPEN = "grip_open"
+    GRIP_CLOSE = "grip_close"
+    PAYLOAD_ARM = "payload_arm"
+    PAYLOAD_DISARM = "payload_disarm"
     ESTOP = "estop"
+    RETURN_HOME = "return_home"
     SYNC_STATE = "sync_state"
     REQUEST_HEALTH = "request_health"
+    REQUEST_SENSOR = "request_sensor"
+
+
+class TelemetryQuality(str, Enum):
+    GOOD = "good"
+    DEGRADED = "degraded"
+    LOST = "lost"
+    UNKNOWN = "unknown"
+
+
+class FlightMode(str, Enum):
+    BOOT = "boot"
+    IDLE = "idle"
+    TAKEOFF = "takeoff"
+    CRUISE = "cruise"
+    SEARCH = "search"
+    HOVER = "hover"
+    LANDING = "landing"
+    RETURN_HOME = "return_home"
+    EMERGENCY = "emergency"
+    CHARGING = "charging"
 
 
 @dataclass(slots=True)
@@ -84,6 +158,9 @@ class MissionAllocation:
     assigned_device: str
     score: float
     reason: str
+    created_at_ms: int = field(default_factory=current_time_ms)
+    expires_at_ms: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -138,9 +215,14 @@ class EdgeCommand:
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> EdgeCommand:
+        cmd_raw = str(d.get("command", CommandType.REQUEST_HEALTH.value))
+        try:
+            cmd = CommandType(cmd_raw)
+        except ValueError:
+            cmd = CommandType.REQUEST_HEALTH
         return cls(
             command_id=str(d.get("command_id", f"cmd-{random.getrandbits(32):08x}")),
-            command=CommandType(str(d.get("command", CommandType.REQUEST_HEALTH.value))),
+            command=cmd,
             target_id=str(d.get("target_id", "")),
             requester_id=str(d.get("requester_id", "")),
             args=dict(d.get("args", {})),
@@ -292,19 +374,46 @@ class Position3D:
 
 
 @dataclass(slots=True)
+class Velocity3D:
+    vx: float = 0.0
+    vy: float = 0.0
+    vz: float = 0.0
+
+    def speed(self) -> float:
+        return math.sqrt(self.vx**2 + self.vy**2 + self.vz**2)
+
+    def to_dict(self) -> dict[str, float]:
+        return {"vx": self.vx, "vy": self.vy, "vz": self.vz}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> Velocity3D:
+        return cls(
+            vx=float(data.get("vx", 0.0)),
+            vy=float(data.get("vy", 0.0)),
+            vz=float(data.get("vz", 0.0)),
+        )
+
+
+@dataclass(slots=True)
 class BatteryState:
     pct: float = 100.0
     voltage: float = 0.0
+    current_a: float = 0.0
+    temperature_c: float = 0.0
+    charging: bool = False
     critical: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {"pct": self.pct, "voltage": self.voltage, "critical": self.critical}
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> BatteryState:
         return cls(
             pct=float(data.get("pct", 100.0)),
             voltage=float(data.get("voltage", 0.0)),
+            current_a=float(data.get("current_a", 0.0)),
+            temperature_c=float(data.get("temperature_c", 0.0)),
+            charging=bool(data.get("charging", False)),
             critical=bool(data.get("critical", False)),
         )
 
@@ -314,42 +423,334 @@ class DroneTelemetry:
     device_id: str
     timestamp_ms: int = field(default_factory=current_time_ms)
     position: Position3D = field(default_factory=Position3D)
-    velocity: dict[str, float] = field(default_factory=dict)
+    velocity: Velocity3D = field(default_factory=Velocity3D)
     battery: BatteryState = field(default_factory=BatteryState)
-    mode: str = "idle"
+    mode: FlightMode = FlightMode.IDLE
+    cpu_pct: float = 0.0
+    memory_pct: float = 0.0
+    link_quality: float = 1.0
+    gps_fix: bool = True
+    heading_deg: float = 0.0
+    temperature_c: float = 0.0
+    altitude_m: float = 0.0
     mission_id: str = ""
     role: str = "standby"
-    link_quality: float = 1.0
+    target_id: str | None = None
+    health_flags: dict[str, Any] = field(default_factory=dict)
     extras: dict[str, Any] = field(default_factory=dict)
+
+    def quality(self) -> TelemetryQuality:
+        score = 1.0
+        if self.link_quality < 0.2:
+            score -= 0.5
+        if self.battery.pct < 20:
+            score -= 0.2
+        if self.cpu_pct > 85:
+            score -= 0.1
+        if self.memory_pct > 85:
+            score -= 0.1
+        if not self.gps_fix:
+            score -= 0.2
+        if score >= 0.8:
+            return TelemetryQuality.GOOD
+        if score >= 0.5:
+            return TelemetryQuality.DEGRADED
+        if score > 0:
+            return TelemetryQuality.LOST
+        return TelemetryQuality.UNKNOWN
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "device_id": self.device_id,
             "timestamp_ms": self.timestamp_ms,
             "position": self.position.to_dict(),
-            "velocity": dict(self.velocity),
+            "velocity": self.velocity.to_dict(),
             "battery": self.battery.to_dict(),
-            "mode": self.mode,
+            "mode": self.mode.value,
+            "cpu_pct": self.cpu_pct,
+            "memory_pct": self.memory_pct,
+            "link_quality": self.link_quality,
+            "gps_fix": self.gps_fix,
+            "heading_deg": self.heading_deg,
+            "temperature_c": self.temperature_c,
+            "altitude_m": self.altitude_m,
             "mission_id": self.mission_id,
             "role": self.role,
-            "link_quality": self.link_quality,
+            "target_id": self.target_id,
+            "health_flags": dict(self.health_flags),
             "extras": dict(self.extras),
+            "quality": self.quality().value,
         }
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DroneTelemetry:
+        raw_mode = data.get("mode", FlightMode.IDLE.value)
+        try:
+            mode = FlightMode(str(raw_mode))
+        except ValueError:
+            mode = FlightMode.IDLE
+        vel_raw = data.get("velocity", {}) or {}
         return cls(
             device_id=str(data.get("device_id", "")),
             timestamp_ms=int(data.get("timestamp_ms", current_time_ms())),
             position=Position3D.from_dict(data.get("position", {}) or {}),
-            velocity={k: float(v) for k, v in dict(data.get("velocity", {})).items()} if data.get("velocity") else {},
+            velocity=Velocity3D.from_dict(vel_raw) if isinstance(vel_raw, Mapping) else Velocity3D(),
             battery=BatteryState.from_dict(data.get("battery", {}) or {}),
-            mode=str(data.get("mode", "idle")),
+            mode=mode,
+            cpu_pct=float(data.get("cpu_pct", 0.0)),
+            memory_pct=float(data.get("memory_pct", 0.0)),
+            link_quality=float(data.get("link_quality", 1.0)),
+            gps_fix=bool(data.get("gps_fix", True)),
+            heading_deg=float(data.get("heading_deg", 0.0)),
+            temperature_c=float(data.get("temperature_c", 0.0)),
+            altitude_m=float(data.get("altitude_m", 0.0)),
             mission_id=str(data.get("mission_id", "")),
             role=str(data.get("role", "standby")),
-            link_quality=float(data.get("link_quality", 1.0)),
+            target_id=data.get("target_id"),
+            health_flags=dict(data.get("health_flags", {})),
             extras=dict(data.get("extras", {})),
         )
+
+
+@dataclass(slots=True)
+class SensorReading:
+    sensor_id: str
+    sensor_type: str
+    value: Any
+    unit: str = ""
+    confidence: float = 1.0
+    source_id: str = ""
+    ts_ms: int = field(default_factory=current_time_ms)
+    quality: TelemetryQuality = TelemetryQuality.UNKNOWN
+    location: Position3D | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "sensor_id": self.sensor_id,
+            "sensor_type": self.sensor_type,
+            "value": self.value,
+            "unit": self.unit,
+            "confidence": self.confidence,
+            "source_id": self.source_id,
+            "ts_ms": self.ts_ms,
+            "quality": self.quality.value,
+            "metadata": dict(self.metadata),
+        }
+        if self.location is not None:
+            d["location"] = self.location.to_dict()
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> SensorReading:
+        loc = data.get("location")
+        q = str(data.get("quality", TelemetryQuality.UNKNOWN.value))
+        try:
+            qual = TelemetryQuality(q)
+        except ValueError:
+            qual = TelemetryQuality.UNKNOWN
+        return cls(
+            sensor_id=str(data.get("sensor_id", "")),
+            sensor_type=str(data.get("sensor_type", "generic")),
+            value=data.get("value"),
+            unit=str(data.get("unit", "")),
+            confidence=float(data.get("confidence", 1.0)),
+            source_id=str(data.get("source_id", "")),
+            ts_ms=int(data.get("ts_ms", current_time_ms())),
+            quality=qual,
+            location=Position3D.from_dict(loc) if isinstance(loc, Mapping) else None,
+            metadata=dict(data.get("metadata", {})),
+        )
+
+
+@dataclass(slots=True)
+class DroneHealthReport:
+    device_id: str
+    status: str
+    quality: TelemetryQuality
+    battery_pct: float
+    link_quality: float
+    mission_id: str = ""
+    role: str = "standby"
+    active_alerts: list[dict[str, Any]] = field(default_factory=list)
+    last_seen_ms: int = field(default_factory=current_time_ms)
+    flight_mode: FlightMode = FlightMode.IDLE
+    score: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["quality"] = self.quality.value
+        d["flight_mode"] = self.flight_mode.value
+        return d
+
+
+class SafetyLevel(str, Enum):
+    OK = "ok"
+    WARN = "warn"
+    STOP = "stop"
+    RTH = "return_home"
+    EMERGENCY = "emergency"
+
+
+@dataclass(slots=True)
+class SafetyEvent:
+    event_id: str
+    device_id: str
+    level: SafetyLevel
+    reason: str
+    details: dict[str, Any] = field(default_factory=dict)
+    position: Position3D | None = None
+    ts_ms: int = field(default_factory=current_time_ms)
+    resolved: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "event_id": self.event_id,
+            "device_id": self.device_id,
+            "level": self.level.value,
+            "reason": self.reason,
+            "details": dict(self.details),
+            "ts_ms": self.ts_ms,
+            "resolved": self.resolved,
+        }
+        if self.position is not None:
+            d["position"] = self.position.to_dict()
+        return d
+
+
+class SafetyController:
+    def __init__(self, geofences: "GeoFenceManager") -> None:
+        self.geofences = geofences
+        self._lock = threading.RLock()
+        self._events: Deque[SafetyEvent] = deque(maxlen=1000)
+
+    def inspect(self, telemetry: DroneTelemetry) -> list[SafetyEvent]:
+        events: list[SafetyEvent] = []
+        violated = self.geofences.check_violations(telemetry.position)
+        if violated:
+            events.append(
+                SafetyEvent(
+                    event_id=f"safe-{random.getrandbits(32):08x}",
+                    device_id=telemetry.device_id,
+                    level=SafetyLevel.STOP,
+                    reason="geofence_violation",
+                    details={"violated": [f.fence_id for f in violated]},
+                    position=telemetry.position,
+                )
+            )
+        if telemetry.battery.critical or telemetry.battery.pct < 10:
+            events.append(
+                SafetyEvent(
+                    event_id=f"safe-{random.getrandbits(32):08x}",
+                    device_id=telemetry.device_id,
+                    level=SafetyLevel.RTH,
+                    reason="battery_low",
+                    details={"battery_pct": telemetry.battery.pct},
+                    position=telemetry.position,
+                )
+            )
+        if telemetry.temperature_c > 80:
+            events.append(
+                SafetyEvent(
+                    event_id=f"safe-{random.getrandbits(32):08x}",
+                    device_id=telemetry.device_id,
+                    level=SafetyLevel.EMERGENCY,
+                    reason="temperature_high",
+                    details={"temperature_c": telemetry.temperature_c},
+                    position=telemetry.position,
+                )
+            )
+        with self._lock:
+            self._events.extend(events)
+        return events
+
+    def recent(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self._lock:
+            return [e.to_dict() for e in list(self._events)[-limit:]]
+
+
+class HealthScorer:
+    def score(self, telemetry: DroneTelemetry, safety_events: Sequence[SafetyEvent] = ()) -> float:
+        s = 100.0
+        s -= max(0.0, 100.0 - telemetry.battery.pct)
+        s -= telemetry.cpu_pct * 0.25
+        s -= telemetry.memory_pct * 0.2
+        s -= max(0.0, 1.0 - telemetry.link_quality) * 30.0
+        if not telemetry.gps_fix:
+            s -= 10.0
+        if telemetry.battery.critical:
+            s -= 35.0
+        for ev in safety_events:
+            if ev.level in {SafetyLevel.STOP, SafetyLevel.EMERGENCY}:
+                s -= 25.0
+            elif ev.level == SafetyLevel.RTH:
+                s -= 10.0
+            elif ev.level == SafetyLevel.WARN:
+                s -= 5.0
+        return clamp(s, 0.0, 100.0)
+
+    def status(self, score: float) -> str:
+        if score >= 80:
+            return "healthy"
+        if score >= 60:
+            return "watch"
+        if score >= 30:
+            return "degraded"
+        return "critical"
+
+
+class FleetHealthMonitor:
+    def __init__(self, scorer: HealthScorer | None = None) -> None:
+        self.scorer = scorer or HealthScorer()
+        self._lock = threading.RLock()
+        self._latest: dict[str, DroneHealthReport] = {}
+
+    def update(self, telemetry: DroneTelemetry, safety_events: Sequence[SafetyEvent] = ()) -> DroneHealthReport:
+        sc = self.scorer.score(telemetry, safety_events)
+        report = DroneHealthReport(
+            device_id=telemetry.device_id,
+            status=self.scorer.status(sc),
+            quality=telemetry.quality(),
+            battery_pct=telemetry.battery.pct,
+            link_quality=telemetry.link_quality,
+            mission_id=telemetry.mission_id,
+            role=telemetry.role,
+            active_alerts=[e.to_dict() for e in safety_events],
+            last_seen_ms=telemetry.timestamp_ms,
+            flight_mode=telemetry.mode,
+            score=sc,
+            metadata={
+                "cpu_pct": telemetry.cpu_pct,
+                "memory_pct": telemetry.memory_pct,
+                "gps_fix": telemetry.gps_fix,
+            },
+        )
+        with self._lock:
+            self._latest[telemetry.device_id] = report
+        return report
+
+    def get(self, device_id: str) -> DroneHealthReport | None:
+        with self._lock:
+            return self._latest.get(device_id)
+
+    def list(self) -> list[DroneHealthReport]:
+        with self._lock:
+            return sorted(self._latest.values(), key=lambda r: (r.score, r.last_seen_ms), reverse=True)
+
+    def fleet_summary(self) -> dict[str, Any]:
+        with self._lock:
+            reports = list(self._latest.values())
+        if not reports:
+            return {"count": 0, "average_score": 0.0, "critical": 0, "degraded": 0, "healthy": 0}
+        avg = sum(r.score for r in reports) / len(reports)
+        return {
+            "count": len(reports),
+            "average_score": avg,
+            "critical": sum(1 for r in reports if r.status == "critical"),
+            "degraded": sum(1 for r in reports if r.status == "degraded"),
+            "healthy": sum(1 for r in reports if r.status == "healthy"),
+        }
 
 
 class JSONStore:
@@ -388,6 +789,7 @@ class BufferedPacket:
     attempts: int = 0
     next_attempt_ms: int = field(default_factory=current_time_ms)
     priority: int = 0
+    sticky_key: str = ""
 
 
 class OfflinePacketBuffer:
@@ -405,6 +807,8 @@ class OfflinePacketBuffer:
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             for item in data:
+                if "sticky_key" not in item:
+                    item = {**item, "sticky_key": ""}
                 self._queue.append(BufferedPacket(**item))
         except Exception:
             LOG.exception("could not load packet buffer: %s", self.path)
@@ -447,9 +851,74 @@ class OfflinePacketBuffer:
             return len(self._queue)
 
 
+class TelemetryCache:
+    """Ring buffer of telemetry frames for replay and last-known-good lookups."""
+
+    def __init__(self, path: Path, *, max_items: int = 10_000) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.max_items = max_items
+        self._lock = threading.RLock()
+        self._entries: Deque[DroneTelemetry] = deque()
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            for item in data:
+                self._entries.append(DroneTelemetry.from_dict(item))
+        except Exception:
+            LOG.exception("could not load telemetry cache")
+
+    def _save_unlocked(self) -> None:
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp.write_text(json.dumps([e.to_dict() for e in self._entries], indent=2, sort_keys=True), encoding="utf-8")
+        tmp.replace(self.path)
+
+    def append(self, telem: DroneTelemetry) -> None:
+        with self._lock:
+            while len(self._entries) >= self.max_items:
+                self._entries.popleft()
+            self._entries.append(telem)
+            self._save_unlocked()
+
+    def list(self, limit: int = 100) -> list[DroneTelemetry]:
+        with self._lock:
+            return list(self._entries)[-limit:]
+
+    def latest_for(self, device_id: str) -> DroneTelemetry | None:
+        with self._lock:
+            for e in reversed(self._entries):
+                if e.device_id == device_id:
+                    return e
+        return None
+
+    def summary(self) -> dict[str, Any]:
+        with self._lock:
+            return {"count": len(self._entries), "devices": sorted({e.device_id for e in self._entries})}
+
+
+class TelemetryReplayer:
+    def __init__(self, cache: TelemetryCache, callback: Callable[[DroneTelemetry], None]) -> None:
+        self.cache = cache
+        self.callback = callback
+
+    def replay(self, limit: int = 100) -> int:
+        n = 0
+        for telem in self.cache.list(limit):
+            self.callback(telem)
+            n += 1
+        return n
+
+
 @dataclass(slots=True)
 class RegistryEntry:
     device_id: str
+    device_type: str = DeviceType.DRONE.value
+    model: str = "generic"
+    vendor: str = "unknown"
     first_seen_ms: int = field(default_factory=current_time_ms)
     last_seen_ms: int = field(default_factory=current_time_ms)
     online: bool = True
@@ -458,6 +927,8 @@ class RegistryEntry:
     mission_id: str = ""
     location: dict[str, float] = field(default_factory=dict)
     capabilities: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def touch_from_telemetry(self, telem: DroneTelemetry) -> None:
         self.last_seen_ms = telem.timestamp_ms
@@ -469,6 +940,37 @@ class RegistryEntry:
         caps = telem.extras.get("capabilities")
         if isinstance(caps, list):
             self.capabilities = sorted(set(self.capabilities) | {str(c) for c in caps})
+
+
+@dataclass(slots=True)
+class DroneCapability:
+    device_id: str
+    device_type: DeviceType = DeviceType.DRONE
+    model: str = "generic"
+    max_payload_kg: float = 0.0
+    max_speed_mps: float = 0.0
+    max_altitude_m: float = 120.0
+    battery_capacity_mah: float = 0.0
+    sensors: list[str] = field(default_factory=list)
+    actuators: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    sw_version: str = "0.0.0"
+    hw_version: str = "0.0.0"
+    vendor: str = "unknown"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_registry_entry(self) -> RegistryEntry:
+        caps = sorted(set(self.sensors + self.actuators + self.tags))
+        return RegistryEntry(
+            device_id=self.device_id,
+            device_type=self.device_type.value,
+            model=self.model,
+            vendor=self.vendor,
+            capabilities=caps,
+            tags=list(self.tags),
+            metadata=dict(self.metadata),
+            online=True,
+        )
 
 
 class DeviceRegistry:
@@ -525,6 +1027,54 @@ class DeviceRegistry:
                 self._devices[device_id].last_seen_ms = current_time_ms()
             self._persist_unlocked()
 
+    def list(self) -> list[RegistryEntry]:
+        with self._lock:
+            return sorted(self._devices.values(), key=lambda d: (d.online, d.last_seen_ms), reverse=True)
+
+    def online_devices(self) -> list[RegistryEntry]:
+        return [d for d in self.list() if d.online]
+
+    def remove(self, device_id: str) -> bool:
+        with self._lock:
+            ok = self._devices.pop(device_id, None) is not None
+        if ok:
+            self._persist_unlocked()
+        return ok
+
+    def register_capability(self, capability: DroneCapability) -> RegistryEntry:
+        return self.upsert(capability.to_registry_entry())
+
+    def score_device(self, entry: RegistryEntry, requirements: dict[str, Any]) -> float:
+        score = 0.0
+        want_dt = requirements.get("device_type")
+        if want_dt and str(want_dt) == entry.device_type:
+            score += 40.0
+        for cap in requirements.get("capabilities", []):
+            if str(cap) in entry.capabilities:
+                score += 10.0
+        min_b = float(requirements.get("min_battery_pct", 0.0))
+        if entry.battery_pct >= min_b:
+            score += min(20.0, entry.battery_pct / 5.0)
+        role = requirements.get("role")
+        if role and role == entry.role:
+            score += 15.0
+        if entry.online:
+            score += 10.0
+        return score
+
+    def best_device_for_task(self, requirements: dict[str, Any]) -> RegistryEntry | None:
+        ranked: list[tuple[float, RegistryEntry]] = []
+        for entry in self.online_devices():
+            ranked.append((self.score_device(entry, requirements), entry))
+        if not ranked:
+            return None
+        ranked.sort(key=lambda t: (t[0], t[1].battery_pct, t[1].device_id), reverse=True)
+        return ranked[0][1]
+
+    def stale_devices(self, stale_after_s: float = 20.0) -> list[RegistryEntry]:
+        now = current_time_ms()
+        return [e for e in self.list() if (now - e.last_seen_ms) / 1000.0 > stale_after_s]
+
 
 class IoTTopicBuilder:
     """``swarm/{swarm_id}/iot/device/{device_id}/…`` layout (MQTT wildcards compatible)."""
@@ -562,6 +1112,9 @@ class IoTTopicBuilder:
     def alerts(self) -> str:
         return f"{self.base()}/alerts"
 
+    def mission(self, mission_id: str) -> str:
+        return f"{self.base()}/mission/{mission_id}"
+
 
 @dataclass(slots=True)
 class FusionSample:
@@ -571,6 +1124,8 @@ class FusionSample:
     weight: float = 1.0
     confidence: float = 1.0
     ts_ms: int = field(default_factory=current_time_ms)
+    location: Position3D | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -581,6 +1136,7 @@ class FusionResult:
     contributors: list[str]
     sensor_type: str
     ts_ms: int = field(default_factory=current_time_ms)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -590,6 +1146,7 @@ class FusionResult:
             "contributors": list(self.contributors),
             "sensor_type": self.sensor_type,
             "ts_ms": self.ts_ms,
+            "metadata": dict(self.metadata),
         }
 
 
@@ -627,6 +1184,56 @@ class SensorFusionEngine:
         conf = clamp(tw / max(len(samples), 1), 0.0, 1.0)
         return FusionResult(key=key, fused_value=fused, confidence=conf, contributors=sorted(set(contrib)), sensor_type="numeric")
 
+    def fuse_boolean(self, key: str) -> FusionResult | None:
+        with self._lock:
+            samples = list(self._samples.get(key, []))
+        if not samples:
+            return None
+        score = 0.0
+        tw = 0.0
+        contrib: list[str] = []
+        for s in samples:
+            w = max(0.1, s.weight * s.confidence)
+            score += (1.0 if bool(s.value) else -1.0) * w
+            tw += w
+            contrib.append(s.source_id)
+        fused = score >= 0
+        conf = clamp(abs(score) / max(tw, 1e-9), 0.0, 1.0)
+        return FusionResult(key=key, fused_value=fused, confidence=conf, contributors=sorted(set(contrib)), sensor_type="boolean")
+
+    def fuse_location(self, key: str) -> FusionResult | None:
+        with self._lock:
+            samples = [s for s in self._samples.get(key, []) if s.location is not None]
+        if not samples:
+            return None
+        wx = wy = wz = tw = 0.0
+        contrib: list[str] = []
+        for s in samples:
+            assert s.location is not None
+            w = max(0.1, s.weight * s.confidence)
+            wx += s.location.x * w
+            wy += s.location.y * w
+            wz += s.location.z * w
+            tw += w
+            contrib.append(s.source_id)
+        if tw <= 0:
+            return None
+        fused = Position3D(x=wx / tw, y=wy / tw, z=wz / tw)
+        return FusionResult(
+            key=key,
+            fused_value=fused.to_dict(),
+            confidence=clamp(tw / max(len(samples), 1), 0.0, 1.0),
+            contributors=sorted(set(contrib)),
+            sensor_type="location",
+        )
+
+    def clear(self, key: str | None = None) -> None:
+        with self._lock:
+            if key is None:
+                self._samples.clear()
+            else:
+                self._samples.pop(key, None)
+
     def summary(self) -> dict[str, Any]:
         with self._lock:
             return {"keys": list(self._samples.keys()), "sample_count": sum(len(v) for v in self._samples.values())}
@@ -640,6 +1247,8 @@ class GeoFence:
     min_alt_m: float = 0.0
     max_alt_m: float = 120.0
     enabled: bool = True
+    emergency_exit: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def contains(self, point: Position3D) -> bool:
         if point.z < self.min_alt_m or point.z > self.max_alt_m:
@@ -667,6 +1276,8 @@ class GeoFence:
             "min_alt_m": self.min_alt_m,
             "max_alt_m": self.max_alt_m,
             "enabled": self.enabled,
+            "emergency_exit": self.emergency_exit,
+            "metadata": dict(self.metadata),
         }
 
 
@@ -679,13 +1290,25 @@ class GeoFenceManager:
         with self._lock:
             self._fences[fence.fence_id] = fence
 
+    def remove(self, fence_id: str) -> bool:
+        with self._lock:
+            return self._fences.pop(fence_id, None) is not None
+
+    def get(self, fence_id: str) -> GeoFence | None:
+        with self._lock:
+            return self._fences.get(fence_id)
+
     def check_violations(self, position: Position3D) -> list[GeoFence]:
         with self._lock:
-            return [f for f in self._fences.values() if f.enabled and not f.contains(position)]
+            return [f for f in self._fences.values() if f.enabled and not f.emergency_exit and not f.contains(position)]
 
     def list(self) -> list[GeoFence]:
         with self._lock:
             return list(self._fences.values())
+
+    def summary(self) -> dict[str, Any]:
+        fs = self.list()
+        return {"count": len(fs), "enabled": sum(1 for f in fs if f.enabled)}
 
 
 class MissionAllocator:
@@ -695,31 +1318,38 @@ class MissionAllocator:
         self._allocations: dict[str, MissionAllocation] = {}
 
     def allocate(self, mission_id: str, target_id: str, requirements: dict[str, Any]) -> MissionAllocation | None:
-        min_b = float(requirements.get("min_battery_pct", 0.0))
-        needed = [str(x) for x in requirements.get("capabilities", [])]
-        best: tuple[float, RegistryEntry] | None = None
-        for entry in self.registry.list_online():
-            if entry.battery_pct < min_b:
-                continue
-            if needed and not set(needed).issubset(set(entry.capabilities)):
-                continue
-            score = float(entry.battery_pct) * 0.6 + float(len(entry.capabilities))
-            t = (score, entry)
-            if best is None or t[0] > best[0]:
-                best = t
-        if best is None:
+        entry = self.registry.best_device_for_task(requirements)
+        if entry is None:
             return None
-        score, entry = best
+        score = self.registry.score_device(entry, requirements)
+        ttl_ms = int(float(requirements.get("ttl_s", 60)) * 1000)
+        reason = f"best_device score={score:.2f} battery={entry.battery_pct:.1f} role={entry.role}"
         alloc = MissionAllocation(
             mission_id=mission_id,
             target_id=target_id,
             assigned_device=entry.device_id,
             score=float(score),
-            reason="battery_and_caps",
+            reason=reason,
+            expires_at_ms=current_time_ms() + ttl_ms,
+            metadata=dict(requirements.get("allocation_metadata", {})),
         )
         with self._lock:
             self._allocations[target_id] = alloc
         return alloc
+
+    def expire(self) -> list[str]:
+        now = current_time_ms()
+        expired: list[str] = []
+        with self._lock:
+            for tid, a in list(self._allocations.items()):
+                if a.expires_at_ms is not None and now >= a.expires_at_ms:
+                    expired.append(tid)
+                    self._allocations.pop(tid, None)
+        return expired
+
+    def get(self, target_id: str) -> MissionAllocation | None:
+        with self._lock:
+            return self._allocations.get(target_id)
 
 
 class EdgeCommandQueue:
@@ -747,6 +1377,128 @@ class EdgeCommandQueue:
             return self._responses.get(command_id)
 
 
+class IoTMQTTConfig:
+    def __init__(
+        self,
+        *,
+        host: str,
+        port: int = 1883,
+        client_id: str,
+        username: str | None = None,
+        password: str | None = None,
+        keepalive: int = 30,
+        qos: int = 2,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.client_id = client_id
+        self.username = username
+        self.password = password
+        self.keepalive = keepalive
+        self.qos = qos
+
+
+class IoTMQTTTransport:
+    """Optional paho-mqtt adapter that delivers decoded :class:`IoTEnvelope` payloads."""
+
+    def __init__(self, config: IoTMQTTConfig) -> None:
+        if mqtt is None:
+            raise RuntimeError("paho-mqtt is required for IoTMQTTTransport")
+        self.config = config
+        self._client = mqtt.Client(client_id=config.client_id)
+        if config.username is not None:
+            self._client.username_pw_set(config.username, config.password)
+        self._connected = threading.Event()
+        self._handlers: DefaultDict[str, list[Callable[[IoTEnvelope], None]]] = defaultdict(list)
+        self._client.on_connect = self._on_connect
+        self._client.on_disconnect = self._on_disconnect
+        self._client.on_message = self._on_message
+
+    def connect(self) -> None:
+        self._client.connect(self.config.host, self.config.port, self.config.keepalive)
+        self._client.loop_start()
+
+    def disconnect(self) -> None:
+        self._client.loop_stop()
+        self._client.disconnect()
+
+    def publish(self, topic: str, payload: str, qos: int | None = None, retain: bool = False) -> Any:
+        q = self.config.qos if qos is None else qos
+        return self._client.publish(topic, payload, qos=q, retain=retain)
+
+    def subscribe(self, topic: str, qos: int | None = None) -> Any:
+        q = self.config.qos if qos is None else qos
+        return self._client.subscribe(topic, qos=q)
+
+    def on(self, topic_filter: str, handler: Callable[[IoTEnvelope], None]) -> None:
+        self._handlers[topic_filter].append(handler)
+        self.subscribe(topic_filter)
+
+    def _on_connect(self, _c: Any, _u: Any, _f: Any, rc: int) -> None:  # pragma: no cover
+        if rc == 0:
+            self._connected.set()
+        else:
+            LOG.warning("IoT MQTT connect rc=%s", rc)
+
+    def _on_disconnect(self, _c: Any, _u: Any, _rc: int) -> None:  # pragma: no cover
+        self._connected.clear()
+
+    def _on_message(self, _c: Any, _u: Any, msg: Any) -> None:  # pragma: no cover
+        try:
+            raw = msg.payload.decode("utf-8") if isinstance(msg.payload, (bytes, bytearray)) else str(msg.payload)
+            envelope = IoTEnvelope.from_json(raw)
+        except Exception:
+            LOG.exception("could not decode IoT message on %s", getattr(msg, "topic", "?"))
+            return
+        for topic_filter, handlers in self._handlers.items():
+            if topic_matches(topic_filter, envelope.topic):
+                for h in handlers:
+                    try:
+                        h(envelope)
+                    except Exception:
+                        LOG.exception("iot handler failed for %s", topic_filter)
+
+
+class SwarmIoTActuation:
+    """Factory helpers for edge actuator commands (lights, buzzer, gripper, payload)."""
+
+    @staticmethod
+    def light_on(target_id: str, requester_id: str) -> EdgeCommand:
+        return EdgeCommand(
+            command_id=f"cmd-{random.getrandbits(32):08x}",
+            command=CommandType.LIGHT_ON,
+            target_id=target_id,
+            requester_id=requester_id,
+        )
+
+    @staticmethod
+    def light_off(target_id: str, requester_id: str) -> EdgeCommand:
+        return EdgeCommand(
+            command_id=f"cmd-{random.getrandbits(32):08x}",
+            command=CommandType.LIGHT_OFF,
+            target_id=target_id,
+            requester_id=requester_id,
+        )
+
+    @staticmethod
+    def buzzer_on(target_id: str, requester_id: str) -> EdgeCommand:
+        return EdgeCommand(
+            command_id=f"cmd-{random.getrandbits(32):08x}",
+            command=CommandType.BUZZER_ON,
+            target_id=target_id,
+            requester_id=requester_id,
+        )
+
+    @staticmethod
+    def grip_close(target_id: str, requester_id: str) -> EdgeCommand:
+        return EdgeCommand(
+            command_id=f"cmd-{random.getrandbits(32):08x}",
+            command=CommandType.GRIP_CLOSE,
+            target_id=target_id,
+            requester_id=requester_id,
+        )
+
+
 class SwarmIoTBridge:
     """Publish signed IoT envelopes and ingest peer telemetry into a local registry."""
 
@@ -769,8 +1521,13 @@ class SwarmIoTBridge:
         self.guard: IoTEnvelopeGuard | None = None
         self.registry = DeviceRegistry(JSONStore(Path(persistence_dir) / f"{swarm_id}.registry.json") if persistence_dir else None)
         self.packet_buffer = OfflinePacketBuffer(Path(persistence_dir) / f"{swarm_id}.{node_id}.buffer.json") if persistence_dir else None
+        self.telemetry_cache = (
+            TelemetryCache(Path(persistence_dir) / f"{swarm_id}.{node_id}.telemetry.json") if persistence_dir else None
+        )
         self.fusion = SensorFusionEngine()
         self.geofences = GeoFenceManager()
+        self.safety = SafetyController(self.geofences)
+        self.health = FleetHealthMonitor()
         self.allocator = MissionAllocator(self.registry)
         self.commands = EdgeCommandQueue()
         self._seq = 0
@@ -811,9 +1568,60 @@ class SwarmIoTBridge:
 
     def publish_telemetry(self, telem: DroneTelemetry) -> str | Any:
         self.registry.update_from_telemetry(telem)
+        safety_events = self.safety.inspect(telem)
+        report = self.health.update(telem, safety_events)
+        if self.telemetry_cache is not None:
+            self.telemetry_cache.append(telem)
         topic = self.topics.telemetry(telem.device_id)
-        env = self.build_envelope("telemetry", topic, telem.to_dict())
+        body = telem.to_dict()
+        body["health"] = report.to_dict()
+        body["safety"] = [e.to_dict() for e in safety_events]
+        body["fused"] = self.fusion.summary()
+        env = self.build_envelope("telemetry", topic, body)
         return self.publish_envelope(env)
+
+    def publish_sensor_reading(self, telem: DroneTelemetry, reading: SensorReading, *, fusion_key: str | None = None) -> str | Any:
+        key = fusion_key or reading.sensor_type
+        self.fusion.ingest(
+            key,
+            FusionSample(
+                source_id=reading.source_id or telem.device_id,
+                sensor_type=reading.sensor_type,
+                value=reading.value,
+                confidence=reading.confidence,
+                location=reading.location,
+                metadata=reading.metadata,
+            ),
+        )
+        payload = reading.to_dict()
+        payload["device_id"] = telem.device_id
+        payload["mode"] = telem.mode.value
+        env = self.build_envelope("sensor", self.topics.sensors(telem.device_id), payload)
+        return self.publish_envelope(env)
+
+    def ingest_geofence_payload(self, data: Mapping[str, Any]) -> GeoFence:
+        pts = [Position3D.from_dict(p) for p in data.get("points", [])]
+        fence = GeoFence(
+            fence_id=str(data.get("fence_id", f"fence-{random.getrandbits(32):08x}")),
+            name=str(data.get("name", "fence")),
+            points=pts,
+            min_alt_m=float(data.get("min_alt_m", 0.0)),
+            max_alt_m=float(data.get("max_alt_m", 120.0)),
+            enabled=bool(data.get("enabled", True)),
+            emergency_exit=bool(data.get("emergency_exit", False)),
+            metadata=dict(data.get("metadata", {})),
+        )
+        self.geofences.add(fence)
+        return fence
+
+    def _fused_sensor_value(self, sensor_type: str) -> FusionResult | None:
+        if sensor_type in {"temperature", "altitude", "distance", "pressure"}:
+            return self.fusion.fuse_numeric(sensor_type)
+        if sensor_type in {"victim_detected", "obstacle", "hazard"}:
+            return self.fusion.fuse_boolean(sensor_type)
+        if sensor_type in {"location", "position", "gps"}:
+            return self.fusion.fuse_location(sensor_type)
+        return self.fusion.fuse_numeric(sensor_type) or self.fusion.fuse_boolean(sensor_type) or self.fusion.fuse_location(sensor_type)
 
     def publish_command(self, cmd: EdgeCommand) -> str | Any:
         self.commands.add(cmd)
@@ -854,22 +1662,73 @@ class SwarmIoTBridge:
                 LOG.debug("command_result parse failed", exc_info=True)
             return {"command_result": "accepted"}
         if env.kind == "telemetry":
-            telem = DroneTelemetry.from_dict(env.payload)
+            raw = dict(env.payload)
+            raw.pop("health", None)
+            raw.pop("safety", None)
+            raw.pop("fused", None)
+            telem = DroneTelemetry.from_dict(raw)
             self.registry.update_from_telemetry(telem)
+            if self.telemetry_cache is not None:
+                self.telemetry_cache.append(telem)
+            safety_events = self.safety.inspect(telem)
+            report = self.health.update(telem, safety_events)
             viol = self.geofences.check_violations(telem.position)
-            return {"telemetry": True, "geofence_violations": [f.fence_id for f in viol]}
+            return {
+                "telemetry": True,
+                "health": report.to_dict(),
+                "geofence_violations": [f.fence_id for f in viol],
+                "safety_events": [e.to_dict() for e in safety_events],
+            }
+        if env.kind == "sensor":
+            reading = SensorReading.from_dict(env.payload)
+            src = str(env.payload.get("device_id", env.device_id))
+            self.fusion.ingest(
+                reading.sensor_type,
+                FusionSample(
+                    source_id=src,
+                    sensor_type=reading.sensor_type,
+                    value=reading.value,
+                    confidence=reading.confidence,
+                    location=reading.location,
+                    metadata=reading.metadata,
+                ),
+            )
+            return {"fused": self.fusion.summary()}
+        if env.kind == "geofence":
+            self.ingest_geofence_payload(env.payload)
+            return {"geofence": True}
         if env.kind == "command":
             cmd = EdgeCommand.from_dict(env.payload)
             if cmd.command is CommandType.REQUEST_HEALTH:
                 entry = self.registry.get(cmd.target_id)
                 ok = entry is not None
-                res = EdgeCommandResult(command_id=cmd.command_id, ok=ok, result={"registry": asdict(entry)} if entry else {}, error=None if ok else "unknown_device")
+                res = EdgeCommandResult(
+                    command_id=cmd.command_id,
+                    ok=ok,
+                    result={"registry": asdict(entry)} if entry else {},
+                    error=None if ok else "unknown_device",
+                )
                 if cmd.expect_ack:
                     ack = self.build_envelope("command_result", self.topics.results(self.node_id), res.to_dict())
                     if self.signer is not None:
                         ack.signature = self.signer.sign(ack)
                     self.publish_envelope(ack, offline_ok=True)
                 return {"command": cmd.command.value, "ok": ok}
+            if cmd.command is CommandType.REQUEST_SENSOR:
+                st = str(cmd.args.get("sensor_type", ""))
+                fused = self._fused_sensor_value(st) if st else None
+                res = EdgeCommandResult(
+                    command_id=cmd.command_id,
+                    ok=bool(st),
+                    result={"sensor_type": st, "fused": fused.to_dict() if fused else None},
+                    error=None if st else "sensor_type_required",
+                )
+                if cmd.expect_ack:
+                    ack = self.build_envelope("command_result", self.topics.results(self.node_id), res.to_dict())
+                    if self.signer is not None:
+                        ack.signature = self.signer.sign(ack)
+                    self.publish_envelope(ack, offline_ok=True)
+                return {"command": cmd.command.value, "ok": res.ok}
         return {"kind": env.kind, "accepted": True}
 
 

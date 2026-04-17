@@ -1,10 +1,30 @@
-import { createLovableConfig } from "lovable-agent-playwright-config/config";
+import { defineConfig, devices } from "@playwright/test";
 
-export default createLovableConfig({
-  // Add your custom playwright configuration overrides here
-  // Example:
-  // timeout: 60000,
-  // use: {
-  //   baseURL: 'http://localhost:3000',
-  // },
+/**
+ * Standard Playwright config for local and CI (public npm).
+ * Vite dev server uses port 8080 — see vite.config.ts.
+ */
+export default defineConfig({
+  testDir: "e2e",
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: "html",
+  use: {
+    baseURL: "http://127.0.0.1:8080",
+    trace: "on-first-retry",
+  },
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
+  webServer: {
+    command: "npm run dev",
+    url: "http://127.0.0.1:8080",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

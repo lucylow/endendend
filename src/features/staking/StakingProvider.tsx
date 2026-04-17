@@ -206,7 +206,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
           functionName: "stake",
           args: [parseEther(String(amount))],
           account: address!,
-        } as any);
+        });
         setHash(h);
       } catch (err) {
         completedOpRef.current = null;
@@ -237,7 +237,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
           functionName: "unstake",
           args: [parseEther(String(amount))],
           account: address!,
-        } as any);
+        });
         setHash(h);
       } catch (err) {
         completedOpRef.current = null;
@@ -275,7 +275,7 @@ export function StakingProvider({ children }: { children: ReactNode }) {
         abi: STAKING_ABI,
         functionName: "claimRewards",
         account: address!,
-      } as any);
+      });
       setHash(h);
     } catch (err) {
       claimAmountRef.current = 0;

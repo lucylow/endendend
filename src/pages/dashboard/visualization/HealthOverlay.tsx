@@ -1,6 +1,5 @@
-import type { ComponentType } from "react";
 import { motion } from "framer-motion";
-import { Activity, AlertTriangle, Radio, WifiOff } from "lucide-react";
+import { Activity, AlertTriangle, Radio, WifiOff, type LucideIcon } from "lucide-react";
 import { useFleetHealthSummary } from "@/features/health/useRobotHealth";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +46,7 @@ function Stat({
   label: string;
   value: string;
   accent: string;
-  icon?: ComponentType<any>;
+  icon?: LucideIcon;
 }) {
   return (
     <div className="rounded-lg bg-zinc-900/70 px-2 py-1.5">

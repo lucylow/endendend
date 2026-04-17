@@ -38,8 +38,9 @@ export default function AuthPage() {
         toast.success("Signed in successfully");
         navigate("/dashboard");
       }
-    } catch (err: any) {
-      toast.error(err.message ?? "Authentication failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Authentication failed";
+      toast.error(message);
     } finally {
       setBusy(false);
     }
