@@ -15,6 +15,11 @@ interface ImportMetaEnv {
   readonly VITE_SWARM_WS_URL?: string;
   /** Comma-separated WebSocket URLs — dashboard merges streams (multi-gateway / no single point of failure). */
   readonly VITE_SWARM_WS_URLS?: string;
+  /**
+   * Optional Vertex / FoxMQ FastAPI base (not the Vite dev server). Example: ``http://127.0.0.1:8090``.
+   * Enables ``BackendBridgeStrip`` and mesh correlation in ``VertexSwarm`` when set.
+   */
+  readonly VITE_SWARM_BACKEND_HTTP?: string;
   /** Stripe.js publishable key (Checkout redirect + Elements) */
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
   /** Optional override when billing API is not same-origin (default: relative /api/...) */

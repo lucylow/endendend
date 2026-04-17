@@ -320,6 +320,57 @@ class CommandResponse:
     data: Dict[str, Any] = field(default_factory=dict)
 
 
+def mesh_tashi_projection(
+    node: Dict[str, Any],
+    *,
+    missions_brief: Optional[List[Dict[str, Any]]] = None,
+    history_tail: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Stable, UI-oriented slice of mesh state + mission hints for Tashi / Vertex dashboards.
+
+    FoxMQ + LWW registers remain authoritative; this projection is read-only metadata for HTTP/WS clients.
+    """
+    registers = node.get("registers") or {}
+    keys = sorted(str(k) for k in registers.keys())
+    return {
+        "mesh": {
+            "nodeId": node.get("node_id"),
+            "swarmId": node.get("swarm_id"),
+            "version": node.get("version"),
+            "updatedAtMs": node.get("updated_at_ms"),
+            "role": node.get("role"),
+            "status": node.get("status"),
+            "depth": node.get("depth"),
+            "peerCount": len(node.get("peers") or {}),
+            "taskCount": len(node.get("tasks") or {}),
+            "alertCount": len(node.get("alerts") or []),
+        },
+        "registers": {"keys": keys, "worldMap": registers.get("world_map")},
+        "chainHint": {
+            "monotonicMeshVersion": node.get("version"),
+            "meshClockMs": node.get("updated_at_ms"),
+            "storeMetrics": dict(node.get("metrics") or {}),
+        },
+        "missionsBrief": list(missions_brief or []),
+        "historyTail": list(history_tail or [])[-12:],
+    }
+
+
+def public_command_result(response: Optional[CommandResponse]) -> Dict[str, Any]:
+    """Normalize command responses for HTTP/WS (flat ``ok``/``result``/``error`` plus embedded ``response``)."""
+    if response is None:
+        return {"ok": True, "result": {}, "error": None, "async": True, "response": None}
+    d = asdict(response)
+    ok = bool(d.get("ok"))
+    return {
+        "ok": ok,
+        "result": dict(d.get("data") or {}),
+        "error": None if ok else str(d.get("message") or ""),
+        "async": False,
+        "response": d,
+    }
+
+
 class SwarmCommandRouter:
     """Dispatches local mesh commands; best-effort async fan-out for remote targets."""
 
@@ -470,12 +521,18 @@ class FleetViewCache:
         self._last_snapshot: Dict[str, Any] = {}
 
     def snapshot(self) -> Dict[str, Any]:
+        node = json.loads(self.state_store.snapshot().to_json())
+        missions = [asdict(m) for m in self.repository.list()]
+        missions_brief = [{"mission_id": m["mission_id"], "name": m.get("name", ""), "status": m.get("status", "")} for m in missions[:32]]
+        with self._lock:
+            hist_tail = list(self._history)[-25:]
         payload = {
-            "node": json.loads(self.state_store.snapshot().to_json()),
+            "node": node,
             "presence": self.presence.summary(),
-            "missions": [asdict(m) for m in self.repository.list()],
-            "history_tail": list(self._history)[-25:],
+            "missions": missions,
+            "history_tail": hist_tail,
             "ts_ms": current_time_ms(),
+            "tashi": mesh_tashi_projection(node, missions_brief=missions_brief, history_tail=hist_tail),
         }
         with self._lock:
             self._last_snapshot = payload
@@ -875,7 +932,7 @@ class SwarmBackendService:
                 raise HTTPException(status_code=400, detail=str(exc))
             except Exception as exc:
                 raise HTTPException(status_code=500, detail=str(exc))
-            return {"response": asdict(response) if response else None}
+            return public_command_result(response)
 
         @app.get("/snapshot/recent")
         def recent(limit: int = 100) -> Dict[str, Any]:
@@ -910,6 +967,8 @@ class SwarmBackendService:
         snapshot = self.runtime.bridge.adapter.health_summary()
         presence = self.presence.summary()
         missions = self.repository.list()
+        node = json.loads(self.runtime.bridge.adapter.state_store.snapshot().to_json())
+        missions_brief = [{"mission_id": m.mission_id, "name": m.name, "status": m.status} for m in missions[:32]]
         return {
             "status": "ok",
             "node": snapshot,
@@ -917,6 +976,7 @@ class SwarmBackendService:
             "mission_count": len(missions),
             "mission_status_counts": self._mission_status_counts(),
             "ts_ms": current_time_ms(),
+            "tashi": mesh_tashi_projection(node, missions_brief=missions_brief),
         }
 
     def metrics_text(self) -> str:
@@ -1052,12 +1112,12 @@ class SwarmBackendService:
         try:
             cmd = RemoteCommand(command_name)
         except ValueError as exc:
-            return {"error": str(exc)}
+            return {"ok": False, "result": {}, "error": str(exc), "async": False, "response": None}
         try:
             response = self.send_remote_command(target_id, cmd, args, wait=True)
         except Exception as exc:
-            return {"error": str(exc)}
-        return {"response": asdict(response) if response else None}
+            return {"ok": False, "result": {}, "error": str(exc), "async": False, "response": None}
+        return public_command_result(response)
 
     def handle_ws_mission(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         action = str(payload.get("action", ""))

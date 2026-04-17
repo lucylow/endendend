@@ -19,6 +19,8 @@ import { applyScenarioToSwarm } from "@/lib/scenarios/applyScenario";
 import { useScenarioOrchestratorStore, type ChaosLevel } from "@/store/scenarioOrchestratorStore";
 import { useSwarmStore } from "@/store/swarmStore";
 import type { CameraMode } from "@/features/swarm/useSwarmVisualization";
+import BackendBridgeStrip from "@/components/tashi/BackendBridgeStrip";
+import { readSwarmBackendHttpBase, SwarmGatewayClient } from "@/lib/tashi-sdk/swarmGatewayClient";
 import { VertexSwarm } from "@/lib/tashi-sdk/vertex";
 import { getScenarioBrief } from "@/lib/scenarios/scenarioBriefs";
 import ScenarioBriefPanel from "@/components/scenarios/ScenarioBriefPanel";
@@ -91,9 +93,14 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
     [navigate, bumpPerformanceDemo],
   );
 
+  const meshGateway = useMemo(() => {
+    const base = readSwarmBackendHttpBase();
+    return base ? new SwarmGatewayClient(base) : null;
+  }, []);
+
   const runVertexDemo = useCallback(async () => {
     const ids = agents.filter((a) => a.status === "active").map((a) => a.id);
-    const vs = new VertexSwarm();
+    const vs = new VertexSwarm({ meshGateway });
     toast.message("Vertex + FoxMQ", { description: "Stake-weighted broadcast → BFT task_acceptance" });
     await vs.consensusVote(ids.slice(0, 5), {
       id: "path-1",
@@ -104,7 +111,7 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
       score: 0.88,
     });
     toast.success("Consensus path committed (sim)");
-  }, [agents]);
+  }, [agents, meshGateway]);
 
   const phaseGroups = useMemo(
     () => ({
@@ -162,6 +169,9 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
               Sixteen failure-proof scenarios across exploration, extraction, and production validation — live 3D swarm,
               FoxMQ exploration sync, and Vertex-weighted consensus in one judge-ready flow.
             </p>
+            <div className="mt-4 max-w-2xl">
+              <BackendBridgeStrip />
+            </div>
             <div className="mt-6 flex flex-wrap gap-2">
               <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">99.99% target @ chaos 0</Badge>
               <Badge className="bg-violet-500/15 text-violet-200 border-violet-500/30">3.2× vs static (design goal)</Badge>

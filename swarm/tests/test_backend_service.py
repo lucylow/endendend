@@ -9,6 +9,7 @@ from pathlib import Path
 
 from swarm.backend_service import (
     BackendSettings,
+    CommandResponse,
     FleetBroadcastHub,
     FleetViewCache,
     JSONFileStore,
@@ -20,6 +21,8 @@ from swarm.backend_service import (
     SwarmCommandRouter,
     SwarmEventLedger,
     _mission_from_payload,
+    mesh_tashi_projection,
+    public_command_result,
 )
 from swarm.foxmq_integration import (
     FoxMQBridge,
@@ -87,6 +90,41 @@ class TestLedgerTail(unittest.TestCase):
             self.assertEqual(tail[-1]["payload"]["i"], 49)
 
 
+class TestTashiProjection(unittest.TestCase):
+    def test_mesh_tashi_projection_keys(self) -> None:
+        node = {
+            "node_id": "n1",
+            "swarm_id": "s1",
+            "version": 7,
+            "updated_at_ms": 123,
+            "role": "command",
+            "status": "ready",
+            "depth": 2,
+            "peers": {"a": {}, "b": {}},
+            "tasks": {"t1": {}},
+            "alerts": [],
+            "registers": {"world_map": {"value": {"cells": {}}, "version": 3}},
+            "metrics": {"x": 1},
+        }
+        proj = mesh_tashi_projection(node, missions_brief=[{"mission_id": "m1", "name": "x", "status": "draft"}])
+        self.assertEqual(proj["mesh"]["version"], 7)
+        self.assertEqual(proj["mesh"]["peerCount"], 2)
+        self.assertEqual(proj["registers"]["keys"], ["world_map"])
+        self.assertEqual(proj["chainHint"]["monotonicMeshVersion"], 7)
+        self.assertEqual(len(proj["missionsBrief"]), 1)
+
+    def test_public_command_result_async_and_sync(self) -> None:
+        async_body = public_command_result(None)
+        self.assertTrue(async_body["async"])
+        self.assertTrue(async_body["ok"])
+        self.assertIsNone(async_body["response"])
+        sync = public_command_result(CommandResponse(True, message="ok", data={"node_id": "n1"}))
+        self.assertFalse(sync["async"])
+        self.assertTrue(sync["ok"])
+        self.assertEqual(sync["result"]["node_id"], "n1")
+        self.assertIn("response", sync)
+
+
 class TestBackendServiceCore(unittest.TestCase):
     def test_local_remote_command_health(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -119,6 +157,9 @@ class TestBackendServiceCore(unittest.TestCase):
                 presence = MeshPresenceTracker(store, stale_peer_s=5, dead_peer_s=10)
                 repo = MissionRepository(JSONFileStore(t / "m.json"))
                 cache = FleetViewCache(store, presence, repo, capacity=8)
+                snap = cache.snapshot()
+                self.assertIn("tashi", snap)
+                self.assertEqual(snap["tashi"]["mesh"]["nodeId"], "n1")
                 hub = FleetBroadcastHub(runtime.bridge.adapter.client, cache)
                 hub.publish_state()
                 client = runtime.bridge.adapter.client
