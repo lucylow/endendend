@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import RelayChainDemo from "@/components/RelayChainDemo";
 import NetworkDegradationTable from "@/components/NetworkDegradationTable";
@@ -7,8 +7,7 @@ import ArchitectureDiagram from "@/components/ArchitectureDiagram";
 import DemoTimeline from "@/components/DemoTimeline";
 import RoleCard from "@/components/RoleCard";
 import CodeSection from "@/components/CodeSection";
-
-const HeroSwarm = lazy(() => import("@/components/hero/HeroSwarm"));
+import HeroSwarm from "@/components/hero/HeroSwarm";
 
 function useActiveSection() {
   const [active, setActive] = useState("");
@@ -90,9 +89,7 @@ export default function Index() {
       <section className="relative pt-24 sm:pt-28 pb-20 sm:pb-28 px-6 overflow-hidden min-h-[85vh] flex items-center">
         {/* 3D Swarm Background */}
         <div className="absolute inset-0 z-0">
-          <Suspense fallback={null}>
-            <HeroSwarm className="h-full w-full opacity-50" />
-          </Suspense>
+          <HeroSwarm className="h-full w-full opacity-50" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/50 to-background" />
           <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background/40" />
         </div>
