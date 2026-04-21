@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
@@ -16,8 +16,8 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
-    console.warn("[ErrorBoundary]", error.message);
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.warn("[ErrorBoundary]", error.message, error.stack, errorInfo.componentStack);
   }
 
   render() {

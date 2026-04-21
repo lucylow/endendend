@@ -1,0 +1,170 @@
+#VRML_SIM R2024a utf8
+# SAR victim dataset: blackout tunnel + high-vis mannequins + supervisor camera rig.
+# Open in Webots from repo root; controller: controllers/victim_dataset_gen/victim_dataset_gen.py
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+
+WorldInfo {
+  title "SAR victim dataset (tunnel / blackout)"
+  info [
+    "Fog + dim lights for blackout tunnel scenarios"
+    "Supervisor moves DEF VICTIM_* nodes; sar_camera captures 640x480"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 30
+}
+
+Viewpoint {
+  position 0 6 18
+  orientation 0.2 0.9 0.2 3.9
+}
+
+Fog {
+  color 0.12 0.12 0.14
+  fogType "EXPONENTIAL"
+  visibilityRange 22
+}
+
+TexturedBackground {
+  texture "dusk"
+}
+
+# Dim global light (tunnel blackout bias)
+DirectionalLight {
+  direction 0.35 -1 0.15
+  intensity 0.35
+  castShadows TRUE
+}
+
+DEF TUNNEL_FLOOR Solid {
+  translation 0 -0.05 6
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.22 0.22 0.24 roughness 0.95 }
+      }
+      geometry Box { size 24 0.1 40 }
+    }
+  ]
+}
+
+DEF TUNNEL_WALL_L Solid {
+  translation -6 1.5 6
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.28 0.27 0.26 roughness 0.9 }
+      }
+      geometry Box { size 0.2 3 40 }
+    }
+  ]
+}
+
+DEF TUNNEL_WALL_R Solid {
+  translation 6 1.5 6
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.26 0.26 0.25 roughness 0.9 }
+      }
+      geometry Box { size 0.2 3 40 }
+    }
+  ]
+}
+
+# Victims: high-vis orange / red torso + skin-tone head (class victim = 0 in labels)
+DEF VICTIM_0 Solid {
+  translation 1.2 0.35 8
+  rotation 0 1 0 0.4
+  recognitionColors [ 1 0.15 0.1 ]
+  children [
+    Shape {
+      appearance Appearance { material Material { diffuseColor 1 0.22 0.12 } }
+      geometry Cylinder { height 1.1 radius 0.22 }
+    }
+    Transform {
+      translation 0 0.72 0
+      children [
+        Shape {
+          appearance Appearance { material Material { diffuseColor 0.82 0.62 0.48 } }
+          geometry Sphere { radius 0.16 subdivision 3 }
+        }
+      ]
+    }
+  ]
+}
+
+DEF VICTIM_1 Solid {
+  translation -1.5 0.3 6.5
+  rotation 0 1 0 -0.6
+  recognitionColors [ 1 0.2 0.08 ]
+  children [
+    Shape {
+      appearance Appearance { material Material { diffuseColor 0.95 0.25 0.08 } }
+      geometry Cylinder { height 0.95 radius 0.2 }
+    }
+    Transform {
+      translation 0 0.62 0
+      children [
+        Shape {
+          appearance Appearance { material Material { diffuseColor 0.78 0.58 0.42 } }
+          geometry Sphere { radius 0.14 subdivision 3 }
+        }
+      ]
+    }
+  ]
+}
+
+DEF VICTIM_2 Solid {
+  translation 2.1 0.28 4.2
+  rotation 1 0 0 1.25
+  recognitionColors [ 0.95 0.18 0.12 ]
+  children [
+    Shape {
+      appearance Appearance { material Material { diffuseColor 0.9 0.2 0.1 } }
+      geometry Cylinder { height 0.85 radius 0.18 }
+    }
+  ]
+}
+
+DEF DEBRIS_A Solid {
+  translation 0.8 0.2 7.2
+  rotation 0 1 0 0.9
+  children [
+    Shape {
+      appearance Appearance { material Material { diffuseColor 0.35 0.32 0.3 } }
+      geometry Box { size 0.5 0.25 0.45 }
+    }
+  ]
+}
+
+DEF DEBRIS_B Solid {
+  translation -2 0.25 9
+  rotation 0 1 0 -0.3
+  children [
+    Shape {
+      appearance Appearance { material Material { diffuseColor 0.32 0.3 0.28 } }
+      geometry Box { size 0.55 0.2 0.5 }
+    }
+  ]
+}
+
+# Supervisor rig: camera only (no physics body)
+Robot {
+  name "DATASET_SUP"
+  supervisor TRUE
+  controller "victim_dataset_gen"
+  translation 0 1.4 12.5
+  rotation 0 1 0 3.14159
+  children [
+    Camera {
+      name "sar_camera"
+      fieldOfView 0.785
+      width 640
+      height 480
+      near 0.05
+    }
+  ]
+}

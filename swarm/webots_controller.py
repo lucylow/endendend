@@ -147,6 +147,11 @@ def parse_controller_args(argv: Optional[List[str]] = None) -> argparse.Namespac
     parser.add_argument("--seed", type=int, default=42, help="RNG seed for reproducibility")
     parser.add_argument("--max-steps", type=int, default=None, help="Max simulation steps (headless)")
     parser.add_argument("--headless", action="store_true", help="Run without Webots")
+    parser.add_argument(
+        "--ros2-vision",
+        action="store_true",
+        help="Disable random mock victims; ingest /victim_detections (YOLOv8 ROS pipeline)",
+    )
     return parser.parse_args(argv)
 
 
@@ -158,10 +163,12 @@ def launch_controller(argv: Optional[List[str]] = None) -> DroneController:
     _random.seed(args.seed)
 
     network_sim = NetworkSimulator(mesh_id="webots_mesh")
+    use_ros_vision = bool(args.ros2_vision or os.environ.get("TASHI_ROS2_VISION") == "1")
+    victim_interval = float("inf") if use_ros_vision else 30.0
     mock_data = MockDataGenerator(
         args.id,
         config.WORLD_BOUNDS,
-        victim_interval=30.0,
+        victim_interval=victim_interval,
         seed=args.seed,
     )
 
@@ -186,6 +193,7 @@ def launch_controller(argv: Optional[List[str]] = None) -> DroneController:
             scenario_path=args.scenario,
             drone_type=args.type,
         )
+        _attach_ros2_vision_if_requested(ctrl, args.id, use_ros_vision)
         return ctrl
 
     # Real Webots
@@ -215,7 +223,25 @@ def launch_controller(argv: Optional[List[str]] = None) -> DroneController:
         scenario_path=args.scenario,
         drone_type=args.type,
     )
+    _attach_ros2_vision_if_requested(ctrl, args.id, use_ros_vision)
     return ctrl
+
+
+def _attach_ros2_vision_if_requested(ctrl: DroneController, drone_id: str, enabled: bool) -> None:
+    if not enabled:
+        return
+    try:
+        from swarm.ros_vision_client import RosVisionClient
+    except Exception as exc:  # pragma: no cover - optional stack
+        logger.error("ROS2 vision requested but ros_vision_client unavailable: %s", exc)
+        return
+    try:
+        client = RosVisionClient(ctrl, drone_id)
+    except Exception as exc:  # pragma: no cover
+        logger.error("Failed to start ROS2 vision client (source ROS workspace?): %s", exc)
+        return
+    ctrl._ros_vision_client = client  # noqa: SLF001 — retain handle for lifetime
+    ctrl.set_ros_spin_callback(client.spin_once)
 
 
 # ---------------------------------------------------------------------------

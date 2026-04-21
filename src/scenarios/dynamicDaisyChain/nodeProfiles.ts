@@ -1,0 +1,91 @@
+import type { NodeProfile, NodeRoleKind } from "./types";
+
+const baseSensor = {
+  cameraConfidence: 0.85,
+  lidarConfidence: 0.8,
+  imuDrift: 0.02,
+  audioEchoConfidence: 0.5,
+};
+
+export const DEFAULT_NODE_PROFILES: NodeProfile[] = [
+  {
+    id: "drone_0",
+    displayName: "Lead Explorer",
+    roleKind: "lead_explorer",
+    relaySuitability: 0.35,
+    explorerSuitability: 0.98,
+    indoorSuitability: 0.55,
+    rescueSuitability: 0.4,
+    backupLeadSuitability: 0.62,
+    tunnelSuitability: 0.92,
+    rangeProfileM: 240,
+    autonomyLevel: 0.9,
+    sensor: { ...baseSensor, cameraConfidence: 0.9, lidarConfidence: 0.72 },
+    fallbackBehavior: "scout_local",
+  },
+  {
+    id: "drone_1",
+    displayName: "Relay A",
+    roleKind: "relay",
+    relaySuitability: 0.95,
+    explorerSuitability: 0.42,
+    indoorSuitability: 0.5,
+    rescueSuitability: 0.35,
+    backupLeadSuitability: 0.55,
+    tunnelSuitability: 0.88,
+    rangeProfileM: 200,
+    autonomyLevel: 0.78,
+    sensor: { ...baseSensor, lidarConfidence: 0.88 },
+    fallbackBehavior: "relay_boost",
+  },
+  {
+    id: "drone_2",
+    displayName: "Relay B",
+    roleKind: "relay",
+    relaySuitability: 0.88,
+    explorerSuitability: 0.48,
+    indoorSuitability: 0.52,
+    rescueSuitability: 0.38,
+    backupLeadSuitability: 0.58,
+    tunnelSuitability: 0.85,
+    rangeProfileM: 190,
+    autonomyLevel: 0.75,
+    sensor: { ...baseSensor, lidarConfidence: 0.86 },
+    fallbackBehavior: "relay_boost",
+  },
+  {
+    id: "drone_3",
+    displayName: "Indoor Scout",
+    roleKind: "indoor_robot",
+    relaySuitability: 0.62,
+    explorerSuitability: 0.58,
+    indoorSuitability: 0.96,
+    rescueSuitability: 0.45,
+    backupLeadSuitability: 0.5,
+    tunnelSuitability: 0.7,
+    rangeProfileM: 160,
+    autonomyLevel: 0.82,
+    sensor: { ...baseSensor, lidarConfidence: 0.92, cameraConfidence: 0.65 },
+    fallbackBehavior: "hold",
+  },
+  {
+    id: "drone_4",
+    displayName: "Rescue / Backup",
+    roleKind: "rescue_robot",
+    relaySuitability: 0.58,
+    explorerSuitability: 0.45,
+    indoorSuitability: 0.55,
+    rescueSuitability: 0.94,
+    backupLeadSuitability: 0.9,
+    tunnelSuitability: 0.68,
+    rangeProfileM: 150,
+    autonomyLevel: 0.7,
+    sensor: { ...baseSensor, cameraConfidence: 0.78 },
+    fallbackBehavior: "retreat",
+  },
+];
+
+export function initialRoleForProfile(p: NodeProfile): NodeRoleKind {
+  if (p.roleKind === "lead_explorer") return "lead_explorer";
+  return "standby";
+}

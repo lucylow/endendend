@@ -1,0 +1,41 @@
+#VRML_SIM R2024a utf8
+# Minimal rubble + victim markers for camera / YOLO demos (extend in Webots GUI).
+
+WorldInfo {
+  title "Victim markers (demo)"
+  basicTimeStep 32
+}
+
+Viewpoint {
+  position 8 12 18
+  orientation 0.2 0.9 0.2 3.8
+}
+
+DirectionalLight {
+  direction 0.3 -1 0.2
+  intensity 1.2
+}
+
+DEF VICTIM1 Solid {
+  translation 5 0.15 0
+  children [
+    Shape {
+      geometry Cylinder { height 0.6 radius 0.15 }
+      appearance Appearance {
+        material Material { diffuseColor 1 0 0 }
+      }
+    }
+  ]
+}
+
+DEF VICTIM2 Solid {
+  translation -3 0.15 2
+  children [
+    Shape {
+      geometry Cylinder { height 0.5 radius 0.12 }
+      appearance Appearance {
+        material Material { diffuseColor 0.9 0.05 0.05 }
+      }
+    }
+  ]
+}

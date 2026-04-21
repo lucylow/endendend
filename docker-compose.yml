@@ -1,0 +1,20 @@
+# Judge one-command stack: Webots blackout world + ROS 2 Humble swarm (colcon_ws).
+# Requires Docker with Linux containers (WSL2 backend on Windows).
+services:
+  webots:
+    image: cyberbotics/webots:R2023b
+    privileged: true
+    volumes:
+      - ./worlds:/worlds:ro
+    command: >
+      bash -lc "webots --batch --mode=fast /worlds/blackout_swarm.wbt || sleep infinity"
+
+  swarm:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ros2
+    depends_on:
+      - webots
+    environment:
+      - ROS_DOMAIN_ID=0
+      - VERTEX_SEED=42

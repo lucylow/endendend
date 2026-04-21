@@ -26,11 +26,10 @@ import type { MissionLedgerEvent } from "@/backend/vertex/mission-ledger";
 import type { LocalAutonomyDirective } from "@/backend/vertex/fallback-coordinator";
 import { MonotonicSharedMap } from "@/swarm/sharedMap";
 import { ExplorationCoordinator } from "@/swarm/explorationManager";
-import { FoxMqMapSyncEngine } from "@/foxmq/mapSyncEngine";
+import { FoxMqMapSyncEngine, type FoxMqMapPublicState } from "@/foxmq/mapSyncEngine";
 import { FOXMQ_DEFAULT_MAP_ID } from "@/foxmq/types";
 import { scenarioMapProfile } from "@/foxmq/mockWorldFactory";
 import { checksumDeltaCells } from "@/foxmq/mapDelta";
-import type { FoxMqMapPublicState } from "@/foxmq/mapSyncEngine";
 import type { MapLedgerEvent } from "@/foxmq/mapLedger";
 import type { ScenarioMapProfile } from "@/foxmq/types";
 import { TargetDiscoveryPipeline } from "@/swarm/targetDiscovery";
@@ -39,6 +38,8 @@ import type { TargetCandidate, NodeExplorationState, RoleHandoffRecord } from "@
 import type { MissionNodeRole } from "@/backend/shared/mission-state";
 import { MeshResilienceSimulator } from "@/vertex2/meshResilienceSimulator";
 import type { MeshResiliencePublicView } from "@/vertex2/types";
+import { MeshSurvivalEngine } from "@/mesh/meshSurvivalEngine";
+import type { MeshSurvivalPublicView } from "@/mesh/types";
 import { mulberry32 } from "@/swarm/seededRng";
 import { effectiveOperatorPathQuality } from "@/swarm/networkModel";
 
@@ -78,6 +79,8 @@ export type VertexSwarmView = {
   roleHandoffs: RoleHandoffRecord[];
   /** Vertex 2.0 mesh resilience proof layer (synthetic stress, discovery, consensus, replay). */
   meshV2: MeshResiliencePublicView | null;
+  /** Modular mesh survival layer (discovery states, relay planning, routes, bus, replay). */
+  meshSurvival: MeshSurvivalPublicView | null;
   foxmqMap: {
     public: FoxMqMapPublicState;
     ledgerTail: MapLedgerEvent[];
@@ -99,6 +102,7 @@ export class VertexSwarmSimulator {
   foxMapSync: FoxMqMapSyncEngine;
   readonly tickMs: number;
   readonly meshV2: MeshResilienceSimulator;
+  readonly meshSurvival: MeshSurvivalEngine;
 
   private rng: () => number;
   private nodes: SwarmAgentNode[] = [];
@@ -120,6 +124,7 @@ export class VertexSwarmSimulator {
     this.tickMs = config.tickMs;
     this.ledger = new MissionLedger();
     this.meshV2 = new MeshResilienceSimulator(config.seed);
+    this.meshSurvival = new MeshSurvivalEngine(config.seed);
     this.foxMapSync = new FoxMqMapSyncEngine(missionId, FOXMQ_DEFAULT_MAP_ID, Date.now());
     this.nodes = createBaselineSwarmNodeList(agentCount, 0.9);
     this.spreadInitialPositions();
@@ -152,6 +157,7 @@ export class VertexSwarmSimulator {
     this.discoveryPipe = new TargetDiscoveryPipeline();
     this.roleCoord = new RoleHandoffCoordinator();
     this.foxMapSync.reset(this.nowMs);
+    this.meshSurvival.reset(this.config.seed);
     for (const n of this.nodes) {
       n.offline = false;
       n.healthStatus = "ok";
@@ -617,6 +623,20 @@ export class VertexSwarmSimulator {
       liveMode: this.config.useMockFallback === false ? "live" : "mock",
     });
 
+    const meshSurvivalView = this.meshSurvival.step({
+      missionId: this.missionId,
+      nowMs: this.nowMs,
+      seed: this.config.seed,
+      tickIndex: this.tickCount,
+      connectivityMode,
+      graph: snap,
+      nodes: this.nodes,
+      operatorNodeId: this.config.operatorNodeId,
+      liveMode: this.config.useMockFallback === false ? "live" : "mock",
+      meshV2: meshView,
+      telemetry: [...this.telemetryBuf],
+    });
+
     return {
       nowMs: this.nowMs,
       missionId: this.missionId,
@@ -658,6 +678,7 @@ export class VertexSwarmSimulator {
       })),
       roleHandoffs: this.roleCoord.getHistory(),
       meshV2: meshView,
+      meshSurvival: meshSurvivalView,
       foxmqMap: {
         public: foxPublic,
         ledgerTail: this.foxMapSync.ledger.tail(80),
@@ -743,6 +764,14 @@ export class VertexSwarmSimulator {
 
   meshResetStress(): void {
     this.meshV2.resetStress();
+  }
+
+  meshSetStressPreset(presetId: string): void {
+    this.meshSurvival.setStressPreset(presetId);
+  }
+
+  meshForceRelayNomination(): void {
+    this.meshSurvival.forceRelayNomination(this.nowMs, this.tickCount);
   }
 
   setUseMockFallback(v: boolean): void {

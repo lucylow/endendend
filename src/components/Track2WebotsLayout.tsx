@@ -21,7 +21,9 @@ export function Track2WebotsLayout() {
       <WebotsBridge />
       <ScenarioControls />
       <LiveDashboard />
-      <Outlet />
+      <div className="absolute inset-0 z-0 h-full w-full min-h-0">
+        <Outlet />
+      </div>
     </div>
   );
 }

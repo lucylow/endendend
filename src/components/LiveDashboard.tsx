@@ -1,5 +1,17 @@
 import { useSwarmStore } from "@/stores/swarmStore";
 
+function countLiveMapCells(globalMap: number[][]): number {
+  if (!globalMap.length) return 0;
+  try {
+    return globalMap.reduce((acc, row) => {
+      if (!Array.isArray(row)) return acc;
+      return acc + row.filter((c) => typeof c === "number" && Number.isFinite(c) && c > 0).length;
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
+
 export default function LiveDashboard() {
   const scenario = useSwarmStore((s) => s.scenario);
   const time = useSwarmStore((s) => s.time);
@@ -11,10 +23,9 @@ export default function LiveDashboard() {
   const relayChain = useSwarmStore((s) => s.relayChain);
   const globalMap = useSwarmStore((s) => s.globalMap);
 
-  const liveCells =
-    globalMap.length > 0
-      ? globalMap.reduce((acc, row) => acc + row.filter((c) => c > 0).length, 0)
-      : 0;
+  const liveCells = countLiveMapCells(globalMap);
+  const timeLabel = Number.isFinite(time) ? time.toFixed(1) : "0.0";
+  const tunnelLabel = Number.isFinite(tunnelDepth) ? tunnelDepth.toFixed(1) : "0.0";
 
   return (
     <div className="pointer-events-none fixed left-1/2 top-4 z-40 w-[min(96vw,36rem)] -translate-x-1/2 rounded-xl border border-border bg-background/90 px-4 py-3 text-xs text-foreground shadow-lg backdrop-blur">
@@ -24,7 +35,7 @@ export default function LiveDashboard() {
       </div>
       <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] sm:grid-cols-3">
         <div>
-          <span className="text-muted-foreground">T+</span> {time.toFixed(1)}s
+          <span className="text-muted-foreground">T+</span> {timeLabel}s
         </div>
         <div>
           <span className="text-muted-foreground">Rovers</span> {rovers.length}
@@ -43,7 +54,7 @@ export default function LiveDashboard() {
           {auction.active ? "active" : "idle"}
         </div>
         <div>
-          <span className="text-muted-foreground">Tunnel</span> {tunnelDepth.toFixed(1)}m
+          <span className="text-muted-foreground">Tunnel</span> {tunnelLabel}m
         </div>
         <div className="sm:col-span-2">
           <span className="text-muted-foreground">Relay</span>{" "}

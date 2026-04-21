@@ -1,0 +1,5 @@
+# https://colcon.readthedocs.io/en/released/reference/meta-arguments.html
+names:
+  endendend:
+    packages-up-to: endendend_launch
+    merge-install: false

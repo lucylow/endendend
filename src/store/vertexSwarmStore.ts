@@ -41,6 +41,8 @@ export type VertexSwarmStoreState = {
   meshInjectLatency: (deltaMs: number) => void;
   meshTogglePartition: (active: boolean) => void;
   meshResetStress: () => void;
+  meshSetStressPreset: (presetId: string) => void;
+  meshForceRelayNomination: () => void;
   snapshotFoxMap: () => void;
   replayFoxMapHistory: () => void;
   stampFoxMapCell: (gx: number, gz: number) => void;
@@ -125,6 +127,10 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
       if (ev.type === "blackout") get().pushLog(ev.active ? `Blackout (${ev.severity ?? "?"})` : "Mesh recovered");
       if (ev.type === "map_updated")
         get().pushLog(`Map cov ${(ev.coverage01 * 100).toFixed(0)}% · frontier ${ev.frontier}`);
+      if (ev.type === "foxmq_sync")
+        get().pushLog(
+          `FoxMQ map v${ev.mapVersion} · dirty ${ev.dirtyDeltas} · lag ${ev.syncLagMs}ms · buf ${ev.partitionBuffer}`,
+        );
       if (ev.type === "target_candidate") get().pushLog(`Target candidate ${ev.candidateId} (${(ev.confidence01 * 100).toFixed(0)}%)`);
       if (ev.type === "target_confirmed_bus") get().pushLog(`Target confirmed ${ev.candidateId}`);
       if (ev.type === "role_handoff") get().pushLog(`Role ${ev.nodeId} → ${ev.toRole} (${ev.reason})`);
@@ -220,6 +226,16 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
 
   meshResetStress() {
     get().simulator?.meshResetStress();
+    void get().stepOnce();
+  },
+
+  meshSetStressPreset(presetId: string) {
+    get().simulator?.meshSetStressPreset(presetId);
+    void get().stepOnce();
+  },
+
+  meshForceRelayNomination() {
+    get().simulator?.meshForceRelayNomination();
     void get().stepOnce();
   },
 

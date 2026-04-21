@@ -29,6 +29,7 @@ import { Vertex2ConnectivityGraph } from "@/components/Vertex2ConnectivityGraph"
 import { Vertex2ConsensusPanel } from "@/components/Vertex2ConsensusPanel";
 import { Vertex2RecoveryPanel } from "@/components/Vertex2RecoveryPanel";
 import { Vertex2ReplayPanel } from "@/components/Vertex2ReplayPanel";
+import { MeshSurvivalPanel } from "@/components/MeshSurvivalPanel";
 import { Vertex2PeerCard } from "@/components/Vertex2PeerCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,6 +226,8 @@ export function VertexSwarmDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <MeshSurvivalPanel mesh={view?.meshSurvival ?? null} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <VertexMissionPanel view={view} />

@@ -67,14 +67,30 @@ export const defaultAerialView: NonNullable<SwarmStreamState["aerial"]> = {
 };
 
 function normalizeRover(r: RoverState, index: number): RoverState {
+  if (!r || typeof r !== "object") {
+    return {
+      id: `rover-${index}`,
+      position: [0, 0, 0],
+      battery: 100,
+      state: "exploring",
+      sector: { bounds: [-10, 10, -10, 10] },
+    };
+  }
   const b = r.sector?.bounds;
   const bounds: [number, number, number, number] =
-    b && b.length === 4 ? b : [-10, 10, -10, 10];
+    Array.isArray(b) && b.length === 4 && b.every((n) => Number.isFinite(Number(n)))
+      ? [Number(b[0]), Number(b[1]), Number(b[2]), Number(b[3])]
+      : [-10, 10, -10, 10];
+  const pos = Array.isArray(r.position) && r.position.length >= 3;
+  const position: [number, number, number] = pos
+    ? [Number(r.position[0]) || 0, Number(r.position[1]) || 0, Number(r.position[2]) || 0]
+    : [0, 0, 0];
   return {
     ...r,
-    id: r.id ?? `rover-${index}`,
-    battery: typeof r.battery === "number" ? r.battery : 100,
-    state: r.state ?? "exploring",
+    id: typeof r.id === "string" && r.id.length ? r.id : `rover-${index}`,
+    position,
+    battery: typeof r.battery === "number" && Number.isFinite(r.battery) ? r.battery : 100,
+    state: r.state === "dead" || r.state === "reallocating" || r.state === "exploring" ? r.state : "exploring",
     sector: { bounds },
   };
 }
@@ -87,17 +103,46 @@ function inferScenario(next: Partial<SwarmStreamState>, prev: SwarmStreamState):
   return prev.scenario === "none" ? "none" : prev.scenario;
 }
 
+function sanitizeBids(raw: AuctionState["bids"] | undefined): AuctionState["bids"] {
+  if (!raw || typeof raw !== "object") return {};
+  const out: AuctionState["bids"] = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!v || typeof v !== "object") continue;
+    const score = typeof v.score === "number" && Number.isFinite(v.score) ? v.score : 0;
+    const distance = typeof v.distance === "number" && Number.isFinite(v.distance) ? v.distance : 0;
+    out[k] = { score, distance };
+  }
+  return out;
+}
+
 function mergeAuction(prev: AuctionState, incoming?: Partial<AuctionState> | AuctionState): AuctionState {
   if (!incoming) return prev;
+  const winner =
+    "winner" in incoming
+      ? typeof incoming.winner === "string" || incoming.winner === null
+        ? incoming.winner
+        : prev.winner
+      : prev.winner;
   return {
-    active: incoming.active ?? prev.active,
-    bids: incoming.bids ?? prev.bids,
-    winner: incoming.winner ?? prev.winner,
+    active: Boolean(incoming.active ?? prev.active),
+    bids: incoming.bids !== undefined ? sanitizeBids(incoming.bids) : prev.bids,
+    winner,
     task: incoming.task ?? prev.task,
   };
 }
 
 let socket: WebSocket | null = null;
+
+async function websocketPayloadToString(data: unknown): Promise<string> {
+  if (typeof data === "string") return data;
+  if (data instanceof Blob) return data.text();
+  if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
+  if (ArrayBuffer.isView(data)) {
+    const v = data as ArrayBufferView;
+    return new TextDecoder().decode(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
+  }
+  throw new Error(`Unsupported WebSocket payload (${Object.prototype.toString.call(data)})`);
+}
 
 function sendSim(playing: boolean, speed: 1 | 2 | 4) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -138,6 +183,7 @@ const initial: SwarmStreamState = {
   lastError: null,
 };
 
+/** Webots ↔ Track 2 UI bridge (browser WebSocket). */
 export const useSwarmStore = create<SwarmStore>()(
   subscribeWithSelector((set, get) => ({
     ...initial,
@@ -145,7 +191,7 @@ export const useSwarmStore = create<SwarmStore>()(
     disconnectWebots: () => {
       socket?.close();
       socket = null;
-      set({ wsConnected: false });
+      set({ wsConnected: false, lastError: null });
     },
 
     connectWebots: (port = 8765, host = "127.0.0.1") => {
@@ -159,60 +205,70 @@ export const useSwarmStore = create<SwarmStore>()(
         };
 
         ws.onmessage = (ev) => {
-          try {
-            const raw = typeof ev.data === "string" ? ev.data : (ev.data as Blob).toString();
-            const j = JSON.parse(raw) as WebotsJson;
-            const prev = get();
+          void (async () => {
+            try {
+              const raw = await websocketPayloadToString(ev.data);
+              const j = JSON.parse(raw) as WebotsJson;
+              const prev = get();
 
-            const rovers = (j.rovers ?? prev.rovers).map((r, i) => normalizeRover(r, i));
-            const groundRovers = (j.ground_rovers ?? prev.groundRovers).map((r, i) =>
-              normalizeRover(r, i),
-            );
-            const globalMap = j.global_map ?? prev.globalMap;
-            const aerial = j.aerial !== undefined ? j.aerial : prev.aerial;
-            const relayChain = j.relay_chain ?? prev.relayChain;
-            const signalQuality = j.signal_quality ?? prev.signalQuality;
+              const rovers = (j.rovers ?? prev.rovers).map((r, i) => normalizeRover(r, i));
+              const groundRovers = (j.ground_rovers ?? prev.groundRovers).map((r, i) =>
+                normalizeRover(r, i),
+              );
+              const globalMap = j.global_map ?? prev.globalMap;
+              const aerial = j.aerial !== undefined ? j.aerial : prev.aerial;
+              const relayChain = j.relay_chain ?? prev.relayChain;
+              const signalQuality = j.signal_quality ?? prev.signalQuality;
 
-            const partial: Partial<SwarmStreamState> = {
-              rovers,
-              globalMap,
-              reallocated: j.reallocated ?? prev.reallocated,
-              time: typeof j.time === "number" ? j.time : prev.time,
-              aerial,
-              groundRovers,
-              auction: mergeAuction(prev.auction, j.auction),
-              rescues_completed: j.rescues_completed ?? prev.rescues_completed,
-              tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
-              relayChain,
-              signalQuality,
-            };
+              const partial: Partial<SwarmStreamState> = {
+                rovers,
+                globalMap,
+                reallocated: j.reallocated ?? prev.reallocated,
+                time: typeof j.time === "number" ? j.time : prev.time,
+                aerial,
+                groundRovers,
+                auction: mergeAuction(prev.auction, j.auction),
+                rescues_completed: j.rescues_completed ?? prev.rescues_completed,
+                tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
+                relayChain,
+                signalQuality,
+              };
 
-            const scenario = inferScenario(
-              {
-                ...prev,
+              const scenario = inferScenario(
+                {
+                  ...prev,
+                  ...partial,
+                },
+                prev,
+              );
+
+              set({
                 ...partial,
-              },
-              prev,
-            );
-
-            set({
-              ...partial,
-              scenario,
-              lastError: null,
-            });
-          } catch (e) {
-            const message = e instanceof Error ? e.message : String(e);
-            set({ lastError: message });
-          }
+                scenario,
+                lastError: null,
+              });
+            } catch (e) {
+              const message = e instanceof Error ? e.message : String(e);
+              set({ lastError: message });
+            }
+          })();
         };
 
         ws.onerror = () => {
-          set({ lastError: "WebSocket error", wsConnected: false });
+          set({ lastError: "WebSocket transport error (check host/port and controller)", wsConnected: false });
         };
 
-        ws.onclose = () => {
-          set({ wsConnected: false });
+        ws.onclose = (closeEv) => {
           if (socket === ws) socket = null;
+          set(() => {
+            const patch: Partial<SwarmStreamState> = { wsConnected: false };
+            const normal = closeEv.wasClean && (closeEv.code === 1000 || closeEv.code === 1001);
+            if (!normal) {
+              const reason = closeEv.reason ? `: ${closeEv.reason}` : "";
+              patch.lastError = `WebSocket closed (code ${closeEv.code})${reason}`;
+            }
+            return patch;
+          });
         };
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -241,3 +297,5 @@ export const useSwarmStore = create<SwarmStore>()(
     },
   })),
 );
+
+export default useSwarmStore;

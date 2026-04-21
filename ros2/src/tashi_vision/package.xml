@@ -3,13 +3,17 @@
 <package format="3">
   <name>tashi_vision</name>
   <version>0.0.1</version>
-  <description>Vision processing for Tashi Swarm</description>
+  <description>YOLOv8 ONNX vision for Tashi Swarm (CPU)</description>
   <maintainer email="lucy@example.com">Lucy Low</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>tashi_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>cv_bridge</depend>
 
   <export>
     <build_type>ament_python</build_type>

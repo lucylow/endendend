@@ -122,7 +122,30 @@ function App() {
               ))}
               <Route path="/docs" element={<Docs />} />
               <Route path="/admin" element={<Admin />} />
-              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>} errorElement={<div className="min-h-screen bg-background flex items-center justify-center text-foreground"><div className="text-center space-y-2"><h1 className="text-xl font-bold">Dashboard Error</h1><p className="text-muted-foreground">Something went wrong. <a href="/dashboard" className="text-primary underline">Reload</a></p></div></div>}>
+              <Route
+                path="/dashboard"
+                element={
+                  <ErrorBoundary
+                    fallback={
+                      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+                        <div className="space-y-2 text-center">
+                          <h1 className="text-xl font-bold">Dashboard error</h1>
+                          <p className="text-muted-foreground">
+                            Something went wrong loading this view.{" "}
+                            <a href="/dashboard" className="text-primary underline">
+                              Reload dashboard
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <ProtectedRoute>
+                      <DashboardLayout />
+                    </ProtectedRoute>
+                  </ErrorBoundary>
+                }
+              >
                 <Route index element={<ErrorBoundary fallback={<div className="p-8 text-muted-foreground">Failed to load overview. <a href="/dashboard" className="text-primary underline">Retry</a></div>}><DashboardOverview /></ErrorBoundary>} />
                 <Route path="simulation" element={<SimulationPage />} />
                 <Route path="vertex-swarm" element={<VertexSwarmPage />} />

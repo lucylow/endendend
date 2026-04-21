@@ -7,6 +7,18 @@
 
 ---
 
+## Judge quick path (~5 minutes)
+
+1. **Coordination SSOT** — read `swarm/coordination/state_machine.py` (pure FSM + `# WHY:` decision comments).
+2. **Diagrams** — `docs/state-machine.mmd`, `docs/roles.mmd`, and `docs/ARCH.md`.
+3. **One-command sim** — `make demo` → `docker compose` brings up Webots (`worlds/blackout_swarm.wbt`) plus the ROS 2 swarm image (`docker/Dockerfile.ros2`). Details: `docs/SETUP.md`.
+4. **Executable spec** — `make test-coord` runs `tests/test_state_machine.py` + `tests/golden_scenarios.py` (install `requirements-coord.txt` first).
+5. **Failure injection** — `python demo/injection_ui.py` then `curl -X POST http://127.0.0.1:8099/inject/kill/<id>` (wire `DEMO_KILL_CMD` for real kills).
+
+> Note: this monorepo’s **web app** lives in `src/` (TypeScript). Python coordination modules live under `swarm/` to avoid mixing languages in the same tree.
+
+---
+
 ## Table of Contents
 
 1. [Project Overview](#project-overview)

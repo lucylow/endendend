@@ -1,0 +1,42 @@
+# Judge-oriented compose (see repository root ``docker-compose.ros2.yml`` for the canonical file).
+# From repo root: ``docker compose -f docker-compose.ros2.yml up --build``
+#
+# Optional: ``--profile sim`` for Webots, ``--profile viz`` for RViz (requires X11).
+
+version: '3.9'
+
+services:
+  webots-gui:
+    profiles: ['sim']
+    image: cyberbotics/webots:R2023b
+    privileged: true
+    ports:
+      - '7681:7681'
+    volumes:
+      - ../worlds:/worlds:ro
+    command: >
+      bash -lc "webots --batch --mode=fast /worlds/blackout_swarm.wbt || sleep infinity"
+
+  ros2-swarm:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ros2
+    privileged: true
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    command: >
+      bash -lc "source /ros_ws/install/setup.bash &&
+      ros2 launch endendend_launch swarm_launch.py num_drones:=5 launch_webots:=false"
+
+  rviz:
+    profiles: ['viz']
+    image: osrf/ros:humble-desktop
+    depends_on:
+      - ros2-swarm
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../rviz2:/rviz2:ro
+    environment:
+      - DISPLAY=${DISPLAY:-}
+    command: bash -lc "source /opt/ros/humble/setup.bash && rviz2 -d /rviz2/swarm.rviz || sleep infinity"

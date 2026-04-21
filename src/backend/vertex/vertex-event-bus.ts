@@ -29,8 +29,8 @@ export class VertexEventBus {
     for (const h of this.handlers) {
       try {
         h(ev);
-      } catch {
-        /* demo bus — ignore subscriber errors */
+      } catch (err) {
+        console.warn("[VertexEventBus] subscriber threw", err);
       }
     }
   }

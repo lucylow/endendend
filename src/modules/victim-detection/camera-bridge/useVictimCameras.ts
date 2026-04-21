@@ -40,9 +40,9 @@ function drawSimFrame(ctx: CanvasRenderingContext2D, seed: number, label: string
 
 export function useVictimCameras(
   detector: ProductionYOLODetector | null,
-  options: { running: boolean; confThreshold: number },
+  options: { running: boolean; confThreshold: number; personOnly?: boolean },
 ) {
-  const { running, confThreshold } = options;
+  const { running, confThreshold, personOnly = true } = options;
   const canvasesRef = useRef<HTMLCanvasElement[]>([]);
   const [feeds, setFeeds] = useState<CameraFeedState[]>(() => [
     { id: "cam-0", label: SIM_LABELS[0]!, source: "px4_sim", stream: null, detections: [], priority: 1, connected: true },
@@ -94,7 +94,7 @@ export function useVictimCameras(
       }
       drawSimFrame(ctx, t + i * 17, SIM_LABELS[i]!);
       const im = ctx.getImageData(0, 0, W, H);
-      nextDetections.push(await detector.detect(im, confThreshold));
+      nextDetections.push(await detector.detect(im, confThreshold, personOnly));
     }
 
     const c3 = ensureCanvas(3);
@@ -105,11 +105,11 @@ export function useVictimCameras(
       const v = videoRef.current;
       ctx3.drawImage(v, 0, 0, W, H);
       const im = ctx3.getImageData(0, 0, W, H);
-      nextDetections.push(await detector.detect(im, confThreshold));
+      nextDetections.push(await detector.detect(im, confThreshold, personOnly));
     } else {
       drawSimFrame(ctx3, t + 99, "WebRTC (simulated)");
       const im = ctx3.getImageData(0, 0, W, H);
-      nextDetections.push(await detector.detect(im, confThreshold));
+      nextDetections.push(await detector.detect(im, confThreshold, personOnly));
     }
 
     setFeeds((prev) =>
@@ -120,7 +120,7 @@ export function useVictimCameras(
       })),
     );
     setFrameTick((x) => x + 1);
-  }, [detector, confThreshold, ensureCanvas]);
+  }, [detector, confThreshold, personOnly, ensureCanvas]);
 
   useEffect(() => {
     if (!running || !detector) return;

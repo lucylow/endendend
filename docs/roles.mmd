@@ -1,0 +1,5 @@
+flowchart LR
+  E[Explorer] -->|victim + frontier| M[Mesh]
+  R[Relay] -->|backhaul| M
+  S[Standby] -->|promotion pool| M
+  M --> V[Vertex / FoxMQ broadcast]

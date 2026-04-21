@@ -1,0 +1,8 @@
+services:
+  victim-trainer:
+    build:
+      context: .
+      dockerfile: docker/vision.Dockerfile
+    volumes:
+      - ./dataset:/workspace/dataset
+      - ./models:/workspace/models

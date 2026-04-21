@@ -1,0 +1,5 @@
+string drone_id
+float32 depth
+---
+string role
+bool is_leader

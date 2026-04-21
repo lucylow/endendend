@@ -1,0 +1,10 @@
+stateDiagram-v2
+    [*] --> DISCOVERY
+    DISCOVERY --> FORMING : live peers >= min_peers_forming
+    FORMING --> EXPLORING : explorer elected
+    EXPLORING --> RECOVERING : live peers < min_live_recovering
+    RECOVERING --> EXPLORING : quorum restored
+    DISCOVERY --> SOLO : isolation >= solo_no_peer_sec
+    EXPLORING --> SOLO : isolation >= solo_no_peer_sec
+    RECOVERING --> SOLO : isolation >= solo_no_peer_sec
+    SOLO --> DISCOVERY : peers rediscovered

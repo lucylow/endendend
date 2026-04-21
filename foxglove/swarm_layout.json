@@ -1,0 +1,27 @@
+{
+  "configById": {
+    "swarm-state": {
+      "title": "/swarm/global_state",
+      "topic": "/swarm/global_state"
+    },
+    "heartbeats": {
+      "title": "/swarm/heartbeat",
+      "topic": "/swarm/heartbeat"
+    },
+    "victims": {
+      "title": "/victim_detections",
+      "topic": "/victim_detections"
+    }
+  },
+  "layout": {
+    "direction": "row",
+    "first": "swarm-state",
+    "second": {
+      "direction": "column",
+      "first": "heartbeats",
+      "second": "victims",
+      "splitPercentage": 50
+    },
+    "splitPercentage": 55
+  }
+}

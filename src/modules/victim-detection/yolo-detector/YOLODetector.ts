@@ -5,6 +5,8 @@ import { mockDetectionsFromFrame } from "./mockDetections";
 
 export type YOLODetectorBackend = "onnx" | "mock";
 
+export type VisionFallback = "mock" | "empty";
+
 export class ProductionYOLODetector {
   inputSize = 640;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -12,12 +14,14 @@ export class ProductionYOLODetector {
   private inputName = "images";
   private backend: YOLODetectorBackend = "mock";
   private frameCounter = 0;
+  private fallback: VisionFallback = "empty";
 
   get activeBackend(): YOLODetectorBackend {
     return this.backend;
   }
 
-  async init(modelUrl: string): Promise<void> {
+  async init(modelUrl: string, opts?: { fallback?: VisionFallback }): Promise<void> {
+    this.fallback = opts?.fallback ?? "empty";
     try {
       const ortMod = await import("onnxruntime-web");
       const wasm = ortMod.default ?? ortMod;
@@ -42,10 +46,17 @@ export class ProductionYOLODetector {
     this.backend = "mock";
   }
 
-  async detect(frame: ImageData, confThreshold = 0.7): Promise<VictimDetection[]> {
+  async detect(
+    frame: ImageData,
+    confThreshold = 0.7,
+    personOnly = true,
+  ): Promise<VictimDetection[]> {
     this.frameCounter += 1;
     if (!this.session) {
-      return mockDetectionsFromFrame(this.frameCounter + frame.width * 7, frame.width, frame.height);
+      if (this.fallback === "mock") {
+        return mockDetectionsFromFrame(this.frameCounter + frame.width * 7, frame.width, frame.height);
+      }
+      return [];
     }
 
     const { tensorData, scale, padX, padY } = letterboxToTensor(frame, this.inputSize);
@@ -57,7 +68,10 @@ export class ProductionYOLODetector {
     const outName = this.session.outputNames[0] as string;
     const output = results[outName] as { dims: readonly number[]; data: Float32Array } | undefined;
     if (!output?.data || !output.dims) {
-      return mockDetectionsFromFrame(this.frameCounter, frame.width, frame.height);
+      if (this.fallback === "mock") {
+        return mockDetectionsFromFrame(this.frameCounter, frame.width, frame.height);
+      }
+      return [];
     }
 
     return postprocessYOLOv8Output(
@@ -68,7 +82,7 @@ export class ProductionYOLODetector {
       scale,
       padX,
       padY,
-      true,
+      personOnly,
     );
   }
 }

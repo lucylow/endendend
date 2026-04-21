@@ -39,6 +39,7 @@ export default function VictimDetectionPage() {
   const startSimulation = useSwarmStore((s) => s.startSimulation);
 
   const [detector, setDetector] = useState<ProductionYOLODetector | null>(null);
+  const [yoloPersonOnly, setYoloPersonOnly] = useState(true);
   const [live, setLive] = useState(true);
   const [showThermal, setShowThermal] = useState(true);
   const [conf, setConf] = useState(0.55);
@@ -50,7 +51,27 @@ export default function VictimDetectionPage() {
 
   useEffect(() => {
     const d = new ProductionYOLODetector();
-    void d.init(`${import.meta.env.BASE_URL}models/yolov8n.onnx`).then(() => setDetector(d));
+    const base = import.meta.env.BASE_URL;
+    const devFallback = import.meta.env.DEV ? "mock" : "empty";
+    void (async () => {
+      const candidates = [
+        `${base}models/victim_yolov8/best.onnx`,
+        `${base}models/victim_yolov8n.onnx`,
+        `${base}models/victim.onnx`,
+        `${base}models/yolov8n.onnx`,
+      ];
+      for (const url of candidates) {
+        await d.init(url, { fallback: "empty" });
+        if (d.activeBackend === "onnx") {
+          setYoloPersonOnly(!url.includes("victim"));
+          setDetector(d);
+          return;
+        }
+      }
+      await d.init(`${base}models/yolov8n.onnx`, { fallback: devFallback });
+      setYoloPersonOnly(true);
+      setDetector(d);
+    })();
     return () => {
       d.dispose();
     };
@@ -63,6 +84,7 @@ export default function VictimDetectionPage() {
   const { feeds, frameTick, canvasesRef, attachWebRtc, videoRef } = useVictimCameras(detector, {
     running: live && !!detector,
     confThreshold: conf,
+    personOnly: yoloPersonOnly,
   });
 
   const worldHint = useMemo(() => {

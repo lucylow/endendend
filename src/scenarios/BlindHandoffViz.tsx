@@ -107,7 +107,9 @@ export default function BlindHandoffViz() {
 
       <div className="pointer-events-none absolute left-4 top-24 max-w-md rounded-lg border border-border/60 bg-black/55 p-3 font-mono text-xs text-white backdrop-blur">
         <div className="text-[11px] text-slate-300">Aerial battery</div>
-        <div className="text-lg font-semibold">{a.battery.toFixed(0)}%</div>
+        <div className="text-lg font-semibold">
+          {Number.isFinite(a.battery) ? a.battery.toFixed(0) : "—"}%
+        </div>
         <div className="mt-2 text-[11px] text-slate-300">Auction</div>
         <div>
           {auction.active ? "bidding…" : "idle"}{" "}
@@ -117,7 +119,8 @@ export default function BlindHandoffViz() {
           <ul className="mt-2 space-y-1 text-[11px]">
             {bidRows.map(([id, b]) => (
               <li key={id}>
-                {id}: score {b.score.toFixed(2)} @ {b.distance.toFixed(1)}m
+                {id}: score {Number.isFinite(b?.score) ? b.score.toFixed(2) : "—"} @{" "}
+                {Number.isFinite(b?.distance) ? b.distance.toFixed(1) : "—"}m
               </li>
             ))}
           </ul>

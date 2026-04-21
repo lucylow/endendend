@@ -134,6 +134,7 @@ class DroneController:
         self._safety_halt = False
         self._last_safety_latency_ms: Optional[float] = None
         self._latency_observer = latency_observer
+        self._ros_spin: Optional[Callable[[], None]] = None
         if scenario_path and network_sim is not None:
             self._start_scenario_from_path(scenario_path, network_sim)
         elif scenario_events and network_sim is not None:
@@ -370,6 +371,8 @@ class DroneController:
 
     def tick(self) -> None:
         now = time.time()
+        if self._ros_spin is not None:
+            self._ros_spin()
         bdt = now - self._last_battery_tick
         self._last_battery_tick = now
         if self.mock_data is None:
@@ -389,6 +392,35 @@ class DroneController:
         elif self.behavior == "relay":
             self._do_relay()
 
+    def set_ros_spin_callback(self, cb: Optional[Callable[[], None]]) -> None:
+        """Optional rclpy ``spin_once`` (or similar) invoked at the start of each ``tick``."""
+        self._ros_spin = cb
+
+    def ingest_vision_victim(self, victim: Dict[str, Any]) -> None:
+        """Apply a ``VICTIM_DETECTED`` payload from YOLOv8 / ROS2 (replaces random mock sightings)."""
+        if victim.get("type") != "VICTIM_DETECTED":
+            return
+        victim.setdefault("timestamp", time.time())
+        self.vertex.broadcast(victim)
+        self._apply_victim_spatial_effects(victim)
+
+    def _apply_victim_spatial_effects(self, victim: Dict[str, Any]) -> None:
+        loc = victim.get("location")
+        if not isinstance(loc, (list, tuple)) or len(loc) < 3:
+            return
+        vpos = (float(loc[0]), float(loc[1]), float(loc[2]))
+        vkey = _location_key(vpos)
+        if (
+            self.drone_type == "aerial"
+            and self.low_battery
+            and vkey not in self._rescued_victim_keys
+            and vkey not in self._handoff_initiated_keys
+        ):
+            self._handoff_initiated_keys.add(vkey)
+            self.initiate_handoff(vpos)
+        elif self.drone_type == "aerial":
+            self.target_manager.detect_target(vpos, float(victim.get("confidence", 1.0)))
+
     def _tick_mock_and_mesh(self, now: float) -> None:
         if self.mock_data is not None:
             dt = now - self._last_mock_tick
@@ -400,23 +432,8 @@ class DroneController:
             victim = self.mock_data.generate(now)
             if victim is not None:
                 self.vertex.broadcast(victim)
-                loc = victim.get("location")
-                if isinstance(loc, (list, tuple)) and len(loc) >= 3:
-                    vpos = (float(loc[0]), float(loc[1]), float(loc[2]))
-                    vkey = _location_key(vpos)
-                    if (
-                        self.drone_type == "aerial"
-                        and self.low_battery
-                        and vkey not in self._rescued_victim_keys
-                        and vkey not in self._handoff_initiated_keys
-                    ):
-                        self._handoff_initiated_keys.add(vkey)
-                        self.initiate_handoff(vpos)
-                    elif self.drone_type == "aerial":
-                        self.target_manager.detect_target(
-                            vpos,
-                            float(victim.get("confidence", 1.0)),
-                        )
+                if victim.get("type") == "VICTIM_DETECTED":
+                    self._apply_victim_spatial_effects(victim)
         if (
             self.network_sim is not None
             and self._mesh_stats_callback is not None

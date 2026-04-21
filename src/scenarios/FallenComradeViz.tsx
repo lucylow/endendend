@@ -165,10 +165,18 @@ export default function FallenComradeViz() {
   const time = useSwarmStore((s) => s.time);
   const reallocated = useSwarmStore((s) => s.reallocated);
   const globalMap = useSwarmStore((s) => s.globalMap);
-  const liveCells =
-    globalMap.length > 0
-      ? globalMap.reduce((acc, row) => acc + row.filter((c) => c > 0).length, 0)
-      : 0;
+  let liveCells = 0;
+  if (globalMap.length > 0) {
+    try {
+      liveCells = globalMap.reduce((acc, row) => {
+        if (!Array.isArray(row)) return acc;
+        return acc + row.filter((c) => typeof c === "number" && Number.isFinite(c) && c > 0).length;
+      }, 0);
+    } catch {
+      liveCells = 0;
+    }
+  }
+  const timeLabel = Number.isFinite(time) ? time.toFixed(1) : "0.0";
 
   return (
     <div className="h-full min-h-0 w-full bg-gradient-to-br from-zinc-950 to-black">
@@ -182,7 +190,7 @@ export default function FallenComradeViz() {
       </Canvas>
 
       <div className="pointer-events-none absolute left-4 top-24 font-mono text-sm text-white drop-shadow-md">
-        <div>T+{time.toFixed(1)}s</div>
+        <div>T+{timeLabel}s</div>
         <div>Reallocated: {reallocated ? "yes" : "no"}</div>
         <div>Live cells: {liveCells}</div>
       </div>
