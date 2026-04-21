@@ -20,6 +20,7 @@ setup(
         'console_scripts': [
             'failure_injector = endendend_supervisor.supervisor_node:main',
             'webots_supervisor = endendend_supervisor.supervisor_node:main',
+            'network_emulator = endendend_supervisor.network_emulator:main',
         ],
     },
 )

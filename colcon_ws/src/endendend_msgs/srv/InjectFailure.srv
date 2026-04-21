@@ -1,0 +1,5 @@
+# Track 2 failure injection (same semantics as KillDrone; separate name for judges/scripts).
+int32 drone_id
+---
+bool success
+string message

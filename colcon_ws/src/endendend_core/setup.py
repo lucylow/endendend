@@ -22,6 +22,8 @@ setup(
             'vertex_ros_bridge = endendend_core.vertex_ros_bridge:main',
             'swarm_state_aggregator = endendend_core.swarm_state_aggregator:main',
             'vertex_p2p_sync = endendend_core.vertex_p2p_sync:main',
+            'vertex_swarm_fsm = endendend_core.vertex_swarm_fsm:main',
+            'relay_chain_publisher = endendend_core.relay_chain_node:main',
         ],
     },
 )

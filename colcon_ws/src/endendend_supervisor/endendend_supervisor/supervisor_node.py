@@ -9,7 +9,7 @@ from std_msgs.msg import Int32MultiArray
 
 from endendend_core.qos_profiles import CRITICAL_QOS
 from endendend_msgs.msg import SwarmGlobalState
-from endendend_msgs.srv import KillDrone, VertexElection
+from endendend_msgs.srv import InjectFailure, KillDrone, VertexElection
 
 
 class FailureInjectorNode(Node):
@@ -27,6 +27,7 @@ class FailureInjectorNode(Node):
         )
         self._inactive_pub = self.create_publisher(Int32MultiArray, '/supervisor/inactive_drone_ids', inactive_qos)
         self._kill_srv = self.create_service(KillDrone, '/supervisor/kill_drone', self._kill_cb)
+        self._inject_srv = self.create_service(InjectFailure, '/supervisor/inject_failure', self._inject_cb)
         self._election_srv = self.create_service(VertexElection, '/vertex/election', self._election_cb)
         self._publish_inactive()
         self.get_logger().info('Failure injector + election services ready.')
@@ -39,15 +40,25 @@ class FailureInjectorNode(Node):
         m.data = sorted(self._killed)
         self._inactive_pub.publish(m)
 
-    def _kill_cb(self, request: KillDrone.Request, response: KillDrone.Response) -> KillDrone.Response:
-        if request.drone_id < 0 or request.drone_id >= self._num:
-            response.success = False
-            response.message = 'drone_id out of range'
-            return response
-        self._killed.add(int(request.drone_id))
+    def _mark_inactive(self, drone_id: int) -> tuple[bool, str]:
+        if drone_id < 0 or drone_id >= self._num:
+            return False, 'drone_id out of range'
+        self._killed.add(int(drone_id))
         self._publish_inactive()
-        response.success = True
-        response.message = f'drone {request.drone_id} marked inactive'
+        return True, f'drone {drone_id} marked inactive'
+
+    def _kill_cb(self, request: KillDrone.Request, response: KillDrone.Response) -> KillDrone.Response:
+        ok, msg = self._mark_inactive(int(request.drone_id))
+        response.success = ok
+        response.message = msg
+        return response
+
+    def _inject_cb(
+        self, request: InjectFailure.Request, response: InjectFailure.Response
+    ) -> InjectFailure.Response:
+        ok, msg = self._mark_inactive(int(request.drone_id))
+        response.success = ok
+        response.message = msg
         return response
 
     def _election_cb(

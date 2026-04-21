@@ -101,6 +101,19 @@ def test_solo_rediscovery_returns_to_discovery() -> None:
     assert sm.swarm_state == SwarmState.DISCOVERY
 
 
+def test_transition_is_noop_when_state_unchanged() -> None:
+    """# JUDGE TEST: Idempotent transitions do not spam the audit buffer."""
+    sm = BlackoutStateMachine()
+    sm.transition(SwarmState.DISCOVERY, why="noop", now=0.0)
+    assert sm.pop_decisions() == []
+
+
+def test_elect_explorer_without_drones_returns_none() -> None:
+    """# JUDGE TEST: Empty swarm never fabricates a leader."""
+    sm = BlackoutStateMachine()
+    assert sm.elect_explorer() is None
+
+
 def test_pop_decisions_drains_audit_buffer() -> None:
     """# JUDGE TEST: Structured decisions are testable without log scraping."""
     sm = BlackoutStateMachine()

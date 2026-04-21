@@ -25,6 +25,7 @@ class DroneController(Node):
         self.declare_parameter('vertex_peer_port', 19790)
         self.declare_parameter('sim_mode', False)
         self.declare_parameter('ros_domain_id', 0)
+        self.declare_parameter('enable_yasmin_thread', True)
 
         drone_id = int(self.get_parameter('drone_id').value)
         self._depth = float(self.get_parameter('initial_depth').value)
@@ -59,8 +60,10 @@ class DroneController(Node):
         self.create_timer(0.5, self._tick_publish)
         self.create_timer(0.5, self._tick_peers)
 
-        self._sm = create_swarm_fsm('endendend_swarm', ns or f'drone{drone_id}')
-        start_fsm_thread(self._sm, self._bb)
+        self._sm = None
+        if bool(self.get_parameter('enable_yasmin_thread').value):
+            self._sm = create_swarm_fsm('endendend_swarm', ns or f'drone{drone_id}')
+            start_fsm_thread(self._sm, self._bb)
 
         self.get_logger().info(
             f'Drone controller up ({self._drone_label}) sim_mode={self._sim_mode} p2p_port={self._p2p_port}'

@@ -1,9 +1,19 @@
-.PHONY: vision_dataset vision_train vision_demo demo stress test-coord docs clarity vision_sync_public
+.PHONY: vision_dataset vision_train vision_demo demo stress test-coord docs clarity vision_sync_public sar_dataset sar_train make_dataset
 
 PYTHON ?= python3
 
 vision_dataset:
 	python dataset/gen_dataset.py --out dataset
+
+sar_dataset:
+	$(PYTHON) dataset/gen_victims.py --mode opencv --train 4000 --val 600 --test 400 --out dataset/staging/synth_opencv
+
+sar_train: sar_dataset
+	$(PYTHON) dataset/split_dataset.py --pair dataset/staging/synth_opencv/images/train dataset/staging/synth_opencv/labels/train --pair dataset/staging/synth_opencv/images/val dataset/staging/synth_opencv/labels/val --pair dataset/staging/synth_opencv/images/test dataset/staging/synth_opencv/labels/test --out dataset/hybrid --train 4800 --val 700 --test 500 --seed 1
+	$(PYTHON) train_sar.py
+
+make_dataset:
+	@echo "Run: bash scripts/make_dataset.sh   (add dataset/real_import for +1k aug)"
 
 vision_train: vision_dataset
 	python train_yolov8.py

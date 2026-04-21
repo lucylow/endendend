@@ -47,7 +47,9 @@ def _write_jpeg_bgr(path: Path, w: int, h: int, bgr: bytes) -> None:
     try:
         import cv2  # type: ignore[import-not-found]
 
-        img = __import__("numpy").frombuffer(bgr, dtype="uint8").reshape((h, w, 3))
+        import numpy as np
+
+        img = np.frombuffer(bgr, dtype=np.uint8).reshape((h, w, 3))
         cv2.imwrite(str(path), img)
     except Exception:
         # Minimal BMP fallback (no OpenCV in Webots Python on some installs)
@@ -113,16 +115,15 @@ def main() -> None:
     timestep = int(robot.getBasicTimeStep())
     cam = robot.getDevice("sar_camera")
     cam.enable(timestep)
-    try:
-        cam.enableRecognition(timestep)
-    except Exception:
-        pass
 
     n_frames = int(os.environ.get("VICTIM_DATASET_N", "200"))
     _ensure_out()
     rng = random.Random(int(os.environ.get("VICTIM_DATASET_SEED", "0")))
 
-    fov = float(getattr(cam, "getFov", lambda: 0.785)())
+    try:
+        fov = float(cam.getFov())
+    except Exception:
+        fov = 0.785
 
     for frame_id in range(n_frames):
         # Random victim poses (tunnel floor y ~ 0.15–0.45)

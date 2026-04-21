@@ -7,10 +7,20 @@ from setuptools import setup
 package_name = 'endendend_launch'
 
 _here = Path(__file__).resolve().parent
-_world = _here.parents[3] / 'worlds' / 'blackout_swarm.wbt'
+_world_dir = _here.parents[3] / 'worlds'
+_world_files = [
+    str(_world_dir / n)
+    for n in ('blackout_swarm.wbt', 'blackout_tunnel.wbt')
+    if (_world_dir / n).is_file()
+]
 _world_install: list[tuple[str, list[str]]] = []
-if _world.is_file():
-    _world_install = [(os.path.join('share', package_name, 'worlds'), [str(_world)])]
+if _world_files:
+    _world_install = [(os.path.join('share', package_name, 'worlds'), _world_files)]
+
+_cfg_files = glob(os.path.join(_here, 'config', '*'))
+_config_install: list[tuple[str, list[str]]] = []
+if _cfg_files:
+    _config_install = [(os.path.join('share', package_name, 'config'), _cfg_files)]
 
 setup(
     name=package_name,
@@ -21,6 +31,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob(os.path.join(_here, 'launch', '*.py'))),
         *_world_install,
+        *_config_install,
     ],
     install_requires=['setuptools'],
     zip_safe=True,

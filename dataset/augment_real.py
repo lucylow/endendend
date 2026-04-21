@@ -85,7 +85,7 @@ def _augment_albu(
 ) -> tuple[np.ndarray, List[Tuple[int, float, float, float, float]]]:
     import albumentations as A  # type: ignore[import-not-found]
 
-    bbs = [[b[1], b[2], b[3], b[4], "victim"] for b in boxes_yolo]
+    bbs = [[b[1], b[2], b[3], b[4]] for b in boxes_yolo]
     transform = A.Compose(
         [
             A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.35, p=0.9),
@@ -97,8 +97,8 @@ def _augment_albu(
         bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]),
         seed=rng.randint(0, 2**30),
     )
-    class_labels = ["victim"] * len(bbs)
-    res = transform(image=img, bboxes=bbs, class_labels=class_labels)
+    cls_lbl = ["victim"] * len(bbs)
+    res = transform(image=img, bboxes=bbs, class_labels=cls_lbl)
     img2 = res["image"]
     out_boxes: List[Tuple[int, float, float, float, float]] = []
     for bb in res["bboxes"]:

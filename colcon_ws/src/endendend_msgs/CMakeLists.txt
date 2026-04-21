@@ -20,6 +20,7 @@ set(msg_files
 set(srv_files
   srv/KillDrone.srv
   srv/VertexElection.srv
+  srv/InjectFailure.srv
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

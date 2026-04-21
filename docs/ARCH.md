@@ -29,4 +29,5 @@ This monorepo keeps the **web dashboard** in TypeScript (`src/`) and **coordinat
 
 1. [`SETUP.md`](SETUP.md) — Docker + Make entrypoints
 2. This file — system map
-3. [`COORD-LOGIC.md`](COORD-LOGIC.md) — FSM decisions line by line
+3. [`VERTEX_P2P_STATE_SYNC_SPEC.md`](VERTEX_P2P_STATE_SYNC_SPEC.md) — Track 2 P2P envelope, sync tiers, BFT/quorum, Webots hooks
+4. [`COORD-LOGIC.md`](COORD-LOGIC.md) — FSM decisions line by line

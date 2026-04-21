@@ -1,0 +1,208 @@
+#VRML_SIM R2024a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/robots/dji/protos/DJIMavic2Pro.proto"
+
+WorldInfo {
+  title "Track 2 Blackout Tunnel (ROS 2)"
+  info [
+    "5-drone SAR swarm — relay chain in tunnel / blackout (drone0..drone4)"
+    "Vertex P2P + ROS 2 Humble; launch: ros2 launch endendend_launch swarm_track2_launch.py"
+    "YOLOv8 / YASMIN / DDS — zero cloud dependency (simulation)"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 30
+}
+
+Viewpoint {
+  position 0 50 100
+  orientation 0.707 0.707 0 3.14159
+}
+
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+
+RectangleArena {
+  floorSize 200 200
+  floorTileSize 10
+  wallHeight 5
+  wallThickness 0.2
+  wallColor 0.5 0.5 0.5
+}
+
+DirectionalLight {
+  direction 0.5 -1 0.5
+  intensity 1.5
+  castShadows TRUE
+}
+
+PointLight {
+  location 0 30 0
+  intensity 0.8
+  radius 100
+}
+
+# --- 5 drones (DEF names align with supervisor DRONE0..DRONE4 pattern) ---
+
+DJIMavic2Pro {
+  translation 0 2 50
+  rotation 0 1 0 0
+  name "drone_0"
+  controller "swarm_controller"
+  controllerArgs ["--id" "drone_0" "--port" "9001"]
+  customData "drone_0"
+}
+
+DJIMavic2Pro {
+  translation 10 2 40
+  rotation 0 1 0 0
+  name "drone_1"
+  controller "swarm_controller"
+  controllerArgs ["--id" "drone_1" "--port" "9002"]
+  customData "drone_1"
+}
+
+DJIMavic2Pro {
+  translation -10 2 30
+  rotation 0 1 0 0
+  name "drone_2"
+  controller "swarm_controller"
+  controllerArgs ["--id" "drone_2" "--port" "9003"]
+  customData "drone_2"
+}
+
+DJIMavic2Pro {
+  translation 15 2 20
+  rotation 0 1 0 0
+  name "drone_3"
+  controller "swarm_controller"
+  controllerArgs ["--id" "drone_3" "--port" "9004"]
+  customData "drone_3"
+}
+
+DJIMavic2Pro {
+  translation -15 2 10
+  rotation 0 1 0 0
+  name "drone_4"
+  controller "swarm_controller"
+  controllerArgs ["--id" "drone_4" "--port" "9005"]
+  customData "drone_4"
+}
+
+# --- Blackout environment ---
+
+Solid {
+  translation 50 0 50
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.3 0.3 0.3
+        metalness 0.5
+      }
+      geometry Box {
+        size 20 15 20
+      }
+    }
+  ]
+  name "collapsed_building"
+  boundingObject Box {
+    size 20 15 20
+  }
+  physics Physics {
+    density 2000
+  }
+}
+
+Solid {
+  translation 60 0 60
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.4 0.4 0.4
+      }
+      geometry Box {
+        size 15 10 15
+      }
+    }
+  ]
+  name "rubble_pile"
+  boundingObject Box {
+    size 15 10 15
+  }
+  physics Physics {
+    density 1500
+  }
+}
+
+Solid {
+  translation -50 0 50
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.2 0.2 0.2
+      }
+      geometry Box {
+        size 30 8 5
+      }
+    }
+  ]
+  name "tunnel_entrance"
+  boundingObject Box {
+    size 30 8 5
+  }
+  physics Physics {
+    density 2500
+  }
+}
+
+Solid {
+  translation 30 0.1 80
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 1 0 0
+        transparency 0.5
+      }
+      geometry Box {
+        size 40 0.2 40
+      }
+    }
+  ]
+  name "hazard_zone"
+}
+
+Solid {
+  translation 55 0.1 55
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0 1 0
+        transparency 0.5
+      }
+      geometry Sphere {
+        radius 2
+      }
+    }
+  ]
+  name "victim_marker_1"
+}
+
+Solid {
+  translation 65 0.1 65
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0 1 0
+        transparency 0.5
+      }
+      geometry Sphere {
+        radius 2
+      }
+    }
+  ]
+  name "victim_marker_2"
+}

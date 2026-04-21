@@ -143,7 +143,7 @@ def _draw_sar_tunnel_frame(img: np.ndarray, rng: random.Random) -> tuple[float, 
         img[:] = (img.astype(np.float32) * (1 - t) + fog.astype(np.float32) * t).astype(np.uint8)
     if rng.random() < 0.12:
         kernel = np.ones((3, 3), np.uint8)
-        img[:] = cv2.dilate(img, kernel, iterations=1)
+        img[:] = cv2.dilate(img, kernel, iterations=1)  # type: ignore[assignment]
     return (xc, yc, bw, bh)
 
 

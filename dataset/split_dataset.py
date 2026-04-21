@@ -41,15 +41,25 @@ def main() -> None:
     for img_d, lbl_d in args.pair:
         all_pairs.extend(_collect_pairs(Path(img_d), Path(lbl_d)))
 
-    if len(all_pairs) < total:
-        raise SystemExit("Need at least %d labeled pairs, got %d" % (total, len(all_pairs)))
-
+    n = len(all_pairs)
+    if n == 0:
+        raise SystemExit("No labeled image pairs found")
+    train_n, val_n, test_n = args.train, args.val, args.test
     rng = random.Random(args.seed)
     rng.shuffle(all_pairs)
+    if n > total:
+        all_pairs = all_pairs[:total]
+        n = total
+    elif n < total:
+        train_n = int(0.8 * n)
+        val_n = int(0.1 * n)
+        test_n = n - train_n - val_n
+        print("Note: pool has %d pairs < %d — using split %d/%d/%d" % (n, total, train_n, val_n, test_n))
+
     chunks = (
-        all_pairs[: args.train],
-        all_pairs[args.train : args.train + args.val],
-        all_pairs[args.train + args.val : total],
+        all_pairs[:train_n],
+        all_pairs[train_n : train_n + val_n],
+        all_pairs[train_n + val_n : train_n + val_n + test_n],
     )
     split_names = ("train", "val", "test")
 
@@ -63,7 +73,7 @@ def main() -> None:
             shutil.copy2(im, idir / (stem + im.suffix))
             shutil.copy2(lb, ldir / (stem + ".txt"))
 
-    print("Wrote hybrid split:", args.out.resolve(), "train/val/test =", args.train, args.val, args.test)
+    print("Wrote hybrid split:", args.out.resolve(), "train/val/test =", train_n, val_n, test_n)
 
 
 if __name__ == "__main__":

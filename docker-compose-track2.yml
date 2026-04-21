@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  webots-blackout:
+    profiles: ['sim']
+    image: cyberbotics/webots:R2023b
+    privileged: true
+    ports:
+      - '7681:7681'
+    volumes:
+      - ./worlds:/worlds:ro
+    command: >
+      bash -lc "webots --batch --mode=fast /worlds/blackout_tunnel.wbt || sleep infinity"
+
+  ros2-vertex-swarm:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ros2
+    privileged: true
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    command: >
+      bash -lc "source /ros_ws/install/setup.bash &&
+      ros2 launch endendend_launch swarm_track2_launch.py num_drones:=5 launch_webots:=false"
+
+  foxglove-studio:
+    profiles: ['viz']
+    image: foxglove/studio:latest
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./foxglove:/layout:ro

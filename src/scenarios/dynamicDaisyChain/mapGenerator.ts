@@ -41,7 +41,7 @@ export function updateMapFromExplorer(
         c.kind = "explored";
         deltas.push({ t, exploredUpToS: c.s, contributorId });
       }
-      explored++;
+      if (c.kind === "explored") explored++;
       frontierS = Math.max(frontierS, c.s);
     } else if (c.kind === "unexplored" && c.s <= explorer.s + CELL_STEP * 2) {
       c.kind = "frontier";

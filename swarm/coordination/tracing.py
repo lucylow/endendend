@@ -1,4 +1,12 @@
-"""Structured decision logging for explainable coordination (golden trace lines)."""
+"""
+Structured decision logging for explainable coordination (golden trace lines).
+
+```mermaid
+flowchart LR
+  FSM[BlackoutStateMachine] -->|decision_dict| T[Tests / CI]
+  FSM -->|log_decision| L[Operator logs]
+```
+"""
 
 from __future__ import annotations
 

@@ -22,7 +22,7 @@ def main() -> int:
         parts.append(p.read_text(encoding="utf-8").strip() + "\n")
         parts.append("```\n\n")
     out.write_text("".join(parts), encoding="utf-8")
-    print(f"wrote {out.relative_to(root.parent)}")
+    print(f"wrote {out.relative_to(root.parent.resolve())}")
 
     mmdc = shutil.which("mmdc")
     if mmdc is None:

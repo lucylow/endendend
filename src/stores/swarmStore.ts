@@ -45,6 +45,7 @@ type WebotsJson = {
   rovers?: RoverState[];
   global_map?: number[][];
   reallocated?: boolean;
+  /** Simulation clock (seconds) from mock or Webots bridge. */
   time?: number;
   aerial?: SwarmStreamState["aerial"];
   ground_rovers?: RoverState[];
@@ -160,6 +161,8 @@ type SwarmActions = {
   togglePlay: () => void;
   setSpeed: (speed: 1 | 2 | 4) => void;
   sendSimControl: () => void;
+  /** Merge Track2 fields from the Dynamic Daisy Chain mock engine (no WebSocket required). */
+  ingestMockFrame: (j: Partial<WebotsJson>) => void;
 };
 
 export type SwarmStore = SwarmStreamState & SwarmActions;
@@ -294,6 +297,38 @@ export const useSwarmStore = create<SwarmStore>()(
     sendSimControl: () => {
       const { isPlaying, speed } = get();
       sendSim(isPlaying, speed);
+    },
+
+    ingestMockFrame: (j) => {
+      const prev = get();
+      const rovers = (j.rovers ?? prev.rovers).map((r, i) => normalizeRover(r, i));
+      const groundRovers = (j.ground_rovers ?? prev.groundRovers).map((r, i) => normalizeRover(r, i));
+      const globalMap = j.global_map ?? prev.globalMap;
+      const aerial = j.aerial !== undefined ? j.aerial : prev.aerial;
+      const relayChain = j.relay_chain ?? prev.relayChain;
+      const signalQuality = j.signal_quality ?? prev.signalQuality;
+
+      const partial: Partial<SwarmStreamState> = {
+        rovers,
+        globalMap,
+        reallocated: j.reallocated ?? prev.reallocated,
+        time: typeof j.time === "number" ? j.time : prev.time,
+        aerial,
+        groundRovers,
+        auction: mergeAuction(prev.auction, j.auction),
+        rescues_completed: j.rescues_completed ?? prev.rescues_completed,
+        tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
+        relayChain,
+        signalQuality,
+      };
+
+      const scenario = inferScenario({ ...prev, ...partial }, prev);
+
+      set({
+        ...partial,
+        scenario,
+        lastError: null,
+      });
     },
   })),
 );
