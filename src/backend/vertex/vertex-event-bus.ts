@@ -6,7 +6,11 @@ export type VertexSimEvent =
   | { type: "task_assigned"; taskId: string; nodeId: string; reasons: string[] }
   | { type: "ledger_committed"; eventType: string; eventHash: string }
   | { type: "blackout"; active: boolean; severity?: string }
-  | { type: "recovery"; message: string };
+  | { type: "recovery"; message: string }
+  | { type: "map_updated"; coverage01: number; frontier: number }
+  | { type: "target_candidate"; candidateId: string; confidence01: number }
+  | { type: "target_confirmed_bus"; candidateId: string }
+  | { type: "role_handoff"; nodeId: string; toRole: string; reason: string };
 
 type Handler = (ev: VertexSimEvent) => void;
 

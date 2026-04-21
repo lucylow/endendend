@@ -34,6 +34,11 @@ export type SwarmAgentNode = {
   position: { x: number; y: number; z: number };
   trust01: number;
   autonomyPolicy: AutonomyPolicyKind;
+  /** Simulated ops / UI: node dropped out or partitioned away. */
+  offline?: boolean;
+  healthStatus?: "ok" | "degraded" | "offline";
+  currentTaskId?: string;
+  lastHeartbeatMs?: number;
 };
 
 export type AutonomyPolicyKind = "scout_continue" | "relay_maintain" | "rescue_continue" | "map_indoor" | "coordinator_queue";
@@ -58,6 +63,8 @@ export type SwarmTaskSpec = {
   winnerNodeId?: string;
   fallbackNodeIds: string[];
   commitProofHint?: string;
+  /** Why the winning bid won — surfaced in UI / audit. */
+  assignmentReason?: string;
   createdAtMs: number;
 };
 
@@ -121,4 +128,6 @@ export type SwarmRuntimeConfig = {
   tickMs: number;
   staleHeartbeatMs: number;
   operatorNodeId: string;
+  /** When true (default), mesh + mission run as deterministic mock fabric. */
+  useMockFallback?: boolean;
 };

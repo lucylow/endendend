@@ -14,3 +14,4 @@ export * from "@/backend/vertex/fallback-coordinator";
 export * from "@/backend/vertex/vertex-event-bus";
 export * from "@/backend/vertex/scenario-presets";
 export * from "@/backend/vertex/swarm-simulator";
+export * from "@/vertex2";

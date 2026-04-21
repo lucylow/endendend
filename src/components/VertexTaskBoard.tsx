@@ -30,6 +30,11 @@ export function VertexTaskBoard({ view }: { view: VertexSwarmView | null }) {
                 {t.winnerNodeId && (
                   <div className="text-primary text-[10px]">Winner: {t.winnerNodeId}</div>
                 )}
+                {t.assignmentReason && (
+                  <div className="text-[10px] text-muted-foreground border-t border-border/30 pt-1">
+                    Why: {t.assignmentReason}
+                  </div>
+                )}
                 {t.bids.filter((b) => b.status === "submitted" || b.score != null).length > 0 && (
                   <div className="text-[10px] space-y-0.5 pt-1 border-t border-border/30">
                     {t.bids

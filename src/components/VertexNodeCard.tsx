@@ -18,9 +18,16 @@ export function VertexNodeCard({ node, telemetry, autonomy }: Props) {
       <CardHeader className="py-3 px-4 space-y-1">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium text-sm text-foreground truncate">{node.displayName}</span>
-          <Badge variant="outline" className="text-[10px] shrink-0">
-            {node.role}
-          </Badge>
+          <div className="flex gap-1 shrink-0">
+            {node.offline && (
+              <Badge variant="destructive" className="text-[9px]">
+                offline
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-[10px]">
+              {node.role}
+            </Badge>
+          </div>
         </div>
         <p className="text-[10px] text-muted-foreground font-mono truncate">
           {node.vendorId} · {node.model}

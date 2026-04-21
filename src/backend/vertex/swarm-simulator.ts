@@ -14,20 +14,26 @@ import { TelemetryNormalizer } from "@/backend/vertex/telemetry-normalizer";
 import { localAutonomyDirectives } from "@/backend/vertex/fallback-coordinator";
 import { VertexEventBus } from "@/backend/vertex/vertex-event-bus";
 import { presetForScenario, type ScenarioPreset } from "@/backend/vertex/scenario-presets";
-import type { SimTelemetrySample, SwarmAgentNode, SwarmRuntimeConfig, SwarmTaskSpec } from "@/backend/vertex/swarm-types";
-import type { ConnectivitySnapshot } from "@/backend/vertex/swarm-types";
+import type {
+  BlackoutSeverity,
+  ConnectivitySnapshot,
+  SimTelemetrySample,
+  SwarmAgentNode,
+  SwarmRuntimeConfig,
+  SwarmTaskSpec,
+} from "@/backend/vertex/swarm-types";
 import type { MissionLedgerEvent } from "@/backend/vertex/mission-ledger";
 import type { LocalAutonomyDirective } from "@/backend/vertex/fallback-coordinator";
-
-function mulberry32(seed: number): () => number {
-  let t = seed >>> 0;
-  return () => {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
+import { MonotonicSharedMap } from "@/swarm/sharedMap";
+import { ExplorationCoordinator } from "@/swarm/explorationManager";
+import { TargetDiscoveryPipeline } from "@/swarm/targetDiscovery";
+import { RoleHandoffCoordinator } from "@/swarm/roleManager";
+import type { TargetCandidate, NodeExplorationState, RoleHandoffRecord } from "@/swarm/types";
+import type { MissionNodeRole } from "@/backend/shared/mission-state";
+import { MeshResilienceSimulator } from "@/vertex2/meshResilienceSimulator";
+import type { MeshResiliencePublicView } from "@/vertex2/types";
+import { mulberry32 } from "@/swarm/seededRng";
+import { effectiveOperatorPathQuality } from "@/swarm/networkModel";
 
 let taskSerial = 1;
 function nextTaskId(): string {
@@ -37,6 +43,8 @@ function nextTaskId(): string {
 export type VertexSwarmView = {
   nowMs: number;
   missionId: string;
+  /** Mesh “operator” / command anchor for reachability analytics (often a command-capable peer). */
+  operatorNodeId: string;
   phase: MissionPhase;
   scenario: MissionScenarioKind;
   preset: ScenarioPreset;
@@ -51,6 +59,18 @@ export type VertexSwarmView = {
   blackoutActive: boolean;
   seed: number;
   tickCount: number;
+  sharedMap: {
+    cells: Record<string, import("@/swarm/types").MapCellMeta>;
+    coverage01: number;
+    explored: number;
+    frontier: number;
+    targetCells: number;
+  };
+  exploration: NodeExplorationState[];
+  discovery: TargetCandidate[];
+  roleHandoffs: RoleHandoffRecord[];
+  /** Vertex 2.0 mesh resilience proof layer (synthetic stress, discovery, consensus, replay). */
+  meshV2: MeshResiliencePublicView | null;
 };
 
 export class VertexSwarmSimulator {
@@ -60,7 +80,12 @@ export class VertexSwarmSimulator {
   blackout = new BlackoutSimulator();
   tasks = new TaskOrchestrator();
   telemetryNorm = new TelemetryNormalizer();
+  sharedMap = new MonotonicSharedMap();
+  explorationCoord = new ExplorationCoordinator();
+  discoveryPipe = new TargetDiscoveryPipeline();
+  roleCoord = new RoleHandoffCoordinator();
   readonly tickMs: number;
+  readonly meshV2: MeshResilienceSimulator;
 
   private rng: () => number;
   private nodes: SwarmAgentNode[] = [];
@@ -72,6 +97,7 @@ export class VertexSwarmSimulator {
   private telemetryBuf: SimTelemetrySample[] = [];
   private lastSeq = new Map<string, number>();
   private initialized = false;
+  private loggedDiscoveries = new Set<string>();
 
   constructor(missionId: string, config: SwarmRuntimeConfig, agentCount = 5) {
     this.missionId = missionId;
@@ -80,6 +106,7 @@ export class VertexSwarmSimulator {
     this.nowMs = Date.now();
     this.tickMs = config.tickMs;
     this.ledger = new MissionLedger();
+    this.meshV2 = new MeshResilienceSimulator(config.seed);
     this.nodes = createBaselineSwarmNodeList(agentCount, 0.9);
     this.spreadInitialPositions();
   }
@@ -102,9 +129,18 @@ export class VertexSwarmSimulator {
     this.telemetryNorm.reset();
     this.lastSeq.clear();
     this.tickCount = 0;
+    this.loggedDiscoveries.clear();
     this.blackout.clearBlackout();
     this.tasks = new TaskOrchestrator();
     this.graph = new ConnectivityGraph();
+    this.sharedMap = new MonotonicSharedMap();
+    this.explorationCoord = new ExplorationCoordinator();
+    this.discoveryPipe = new TargetDiscoveryPipeline();
+    this.roleCoord = new RoleHandoffCoordinator();
+    for (const n of this.nodes) {
+      n.offline = false;
+      n.healthStatus = "ok";
+    }
     const boot = await bootstrapMission(this.missionId, this.config.operatorNodeId, this.nowMs, {
       scenario: this.config.scenario,
     });
@@ -128,6 +164,7 @@ export class VertexSwarmSimulator {
 
   private moveAgents(): void {
     for (const n of this.nodes) {
+      if (n.offline) continue;
       const wobble = () => (this.rng() - 0.5) * 0.8;
       n.position.x += wobble();
       n.position.z += wobble();
@@ -138,12 +175,14 @@ export class VertexSwarmSimulator {
   private emitTelemetry(connectivityMode: VertexConnectivityMode): void {
     this.telemetryBuf = [];
     for (const n of this.nodes) {
+      if (n.offline) continue;
       const edge = this.graph.getEdge(n.nodeId, this.config.operatorNodeId);
       const q = edge?.quality01 ?? 0.35;
       const drain = n.capabilities.batteryDrainPerTick * (connectivityMode === "blackout" ? 0.85 : 1);
       n.trust01 = Math.max(0.35, Math.min(0.99, n.trust01 + (this.rng() - 0.48) * 0.002));
       const seq = (this.lastSeq.get(n.nodeId) ?? 0) + 1;
       this.lastSeq.set(n.nodeId, seq);
+      n.lastHeartbeatMs = this.nowMs;
       const raw: SimTelemetrySample = {
         nodeId: n.nodeId,
         battery01: Math.max(0.08, 0.97 - drain * this.tickCount * 0.02),
@@ -240,14 +279,13 @@ export class VertexSwarmSimulator {
     this.bus.emit({ type: "task_opened", taskId: spec.taskId });
   }
 
-  private simulateBids(connectivityMode: VertexConnectivityMode): void {
+  private simulateBids(connectivityMode: VertexConnectivityMode, snap: ConnectivitySnapshot): void {
     const nodesById = new Map(this.nodes.map((n) => [n.nodeId, n]));
     for (const t of this.tasks.getTasks()) {
       if (t.status !== "open" && t.status !== "bidding") continue;
       for (const n of this.nodes) {
         if (this.rng() > 0.42 + n.capabilities.computeTier * 0.08) continue;
-        const edge = this.graph.getEdge(n.nodeId, this.config.operatorNodeId);
-        const link = edge?.quality01 ?? 0.2;
+        const link = effectiveOperatorPathQuality(snap.edges, snap.operatorReachable, n.nodeId, this.config.operatorNodeId).quality01;
         this.tasks.submitBid(t.taskId, {
           nodeId: n.nodeId,
           etaSec: 30 + Math.floor(this.rng() * 180),
@@ -341,8 +379,9 @@ export class VertexSwarmSimulator {
     if (done < 1 + Math.floor(this.tickCount / 40)) return;
     const next = nominalNextPhase(this.phase);
     if (!next || next === "aborted") return;
+    const mapStats = this.sharedMap.coverageStats();
     const sug = suggestPhaseTransition(this.missionId, this.config.operatorNodeId, this.phase, next, this.nowMs, {
-      cellsKnown: 12 + done * 3,
+      cellsKnown: mapStats.explored + mapStats.frontier + Math.floor(done * 2),
     });
     if ("error" in sug) return;
     await commitVertexBatch(this.ledger, [sug]);
@@ -351,8 +390,89 @@ export class VertexSwarmSimulator {
 
   private async maybeCheckpoint(): Promise<void> {
     if (this.tickCount % 22 !== 0) return;
-    const sug = suggestRecoveryCheckpoint(this.missionId, this.config.operatorNodeId, `ckpt-${this.tickCount}`, this.nowMs);
+    const st = this.sharedMap.coverageStats();
+    const sug = suggestRecoveryCheckpoint(this.missionId, this.config.operatorNodeId, `ckpt-${this.tickCount}`, this.nowMs, {
+      mapCells: Object.keys(this.sharedMap.snapshotCells()).length,
+      coverage01: st.coverage01,
+    });
     await commitVertexBatch(this.ledger, [sug]);
+  }
+
+  private spawnRescueTaskForTarget(candidate: TargetCandidate): void {
+    const spec: SwarmTaskSpec = {
+      taskId: nextTaskId(),
+      missionId: this.missionId,
+      taskType: "victim_extract",
+      priority: 9,
+      location: { ...candidate.world },
+      requirements: ["thermal", "payload", "gripper"],
+      allowedRoles: ["explorer", "relay", "carrier", "medic", "observer"],
+      preferredVendorTraits: ["rescue", "heavy_lift"],
+      minBattery01: 0.18,
+      minTrust01: 0.35,
+      minConnectivity01: 0.08,
+      expiresAtMs: this.nowMs + 120_000,
+      status: "open",
+      bids: [],
+      fallbackNodeIds: [],
+      createdAtMs: this.nowMs,
+    };
+    this.tasks.openTask(spec);
+    this.bus.emit({ type: "task_opened", taskId: spec.taskId });
+  }
+
+  private async commitTargetCandidateLedger(candidate: TargetCandidate, promoted: boolean): Promise<void> {
+    if (!this.loggedDiscoveries.has(candidate.candidateId)) {
+      this.loggedDiscoveries.add(candidate.candidateId);
+      const ev = await this.ledger.append({
+        missionId: this.missionId,
+        actorId: candidate.evidence[0]?.nodeId ?? this.config.operatorNodeId,
+        eventType: "target_discovered",
+        plane: "vertex",
+        payload: {
+          targetId: candidate.candidateId,
+          confidence: candidate.mergedConfidence01,
+          gx: candidate.gx,
+          gz: candidate.gz,
+          notes: candidate.trustExplanation.join(";"),
+        },
+        timestamp: this.nowMs,
+        previousHash: this.ledger.tailHash(),
+      });
+      this.bus.emit({ type: "ledger_committed", eventType: ev.eventType, eventHash: ev.eventHash });
+    }
+    if (promoted) {
+      const ev = await this.ledger.append({
+        missionId: this.missionId,
+        actorId: candidate.confirmedByNodeId ?? this.config.operatorNodeId,
+        eventType: "target_confirmed",
+        plane: "vertex",
+        payload: {
+          targetId: candidate.candidateId,
+          confidence: candidate.mergedConfidence01,
+          corroboration: candidate.evidence.length,
+        },
+        timestamp: this.nowMs + 1,
+        previousHash: this.ledger.tailHash(),
+      });
+      this.bus.emit({ type: "ledger_committed", eventType: ev.eventType, eventHash: ev.eventHash });
+      this.bus.emit({ type: "target_confirmed_bus", candidateId: candidate.candidateId });
+      this.sharedMap.applyLocalUpdate(candidate.gx, candidate.gz, "target", this.nowMs, candidate.confirmedByNodeId ?? "mesh", candidate.mergedConfidence01);
+      this.spawnRescueTaskForTarget(candidate);
+    }
+  }
+
+  private async commitRoleChange(nodeId: string, role: MissionNodeRole, reason: string): Promise<void> {
+    const ev = await this.ledger.append({
+      missionId: this.missionId,
+      actorId: nodeId,
+      eventType: "role_change",
+      plane: "vertex",
+      payload: { nodeId, role, reason },
+      timestamp: this.nowMs,
+      previousHash: this.ledger.tailHash(),
+    });
+    this.bus.emit({ type: "ledger_committed", eventType: ev.eventType, eventHash: ev.eventHash });
   }
 
   async tick(): Promise<VertexSwarmView> {
@@ -362,7 +482,8 @@ export class VertexSwarmSimulator {
     this.bus.emit({ type: "tick", nowMs: this.nowMs });
 
     this.moveAgents();
-    this.graph.rebuildFromNodes(this.nodes, 22, this.rng);
+    const simNodes = this.nodes.filter((n) => !n.offline);
+    this.graph.rebuildFromNodes(simNodes.length ? simNodes : this.nodes, 22, this.rng);
     this.scheduleBlackoutIfNeeded();
     const connectivityMode = this.stepConnectivity();
 
@@ -382,8 +503,62 @@ export class VertexSwarmSimulator {
     );
 
     const preset = this.getPreset();
+    const active = this.nodes.filter((n) => !n.offline);
+    const explorationStates = this.explorationCoord.step({
+      map: this.sharedMap,
+      nodes: active,
+      connectivityMode,
+      graph: snap,
+      operatorId: this.config.operatorNodeId,
+      nowMs: this.nowMs,
+      rng: this.rng,
+      scenarioMapHint: preset.mapBehavior,
+    });
+    this.explorationCoord.gossipMapDeltas(this.sharedMap, snap, this.nowMs, this.rng);
+
+    for (const n of active) {
+      const { gx, gz } = MonotonicSharedMap.worldToGrid(n.position.x, n.position.z);
+      const cell = this.sharedMap.getCell(`${gx},${gz}`);
+      if (cell?.state === "searched") {
+        const hit = this.discoveryPipe.maybeSensorHit(n, this.config.scenario, this.rng);
+        if (hit) {
+          const { candidate, promoted } = this.discoveryPipe.addEvidence({
+            missionId: this.missionId,
+            node: n,
+            sensor: hit.sensor,
+            confidence01: hit.confidence01,
+            nowMs: this.nowMs,
+            scenario: this.config.scenario,
+            note: hit.note,
+          });
+          this.bus.emit({
+            type: "target_candidate",
+            candidateId: candidate.candidateId,
+            confidence01: candidate.mergedConfidence01,
+          });
+          await this.commitTargetCandidateLedger(candidate, promoted);
+        }
+      }
+    }
+
+    const handoffs = this.roleCoord.evaluate({
+      nodes: active,
+      connectivityMode,
+      confirmedTargets: this.discoveryPipe.confirmedTargets(),
+      operatorReachable: snap.operatorReachable,
+      nowMs: this.nowMs,
+      rng: this.rng,
+    });
+    for (const h of handoffs) {
+      this.bus.emit({ type: "role_handoff", nodeId: h.nodeId, toRole: h.toRole, reason: h.reason });
+      await this.commitRoleChange(h.nodeId, h.toRole, `${h.reason}: ${h.evidence}`);
+    }
+
+    const mapStats = this.sharedMap.coverageStats();
+    this.bus.emit({ type: "map_updated", coverage01: mapStats.coverage01, frontier: mapStats.frontier });
+
     this.spawnTaskIfNeeded(preset);
-    this.simulateBids(connectivityMode);
+    this.simulateBids(connectivityMode, snap);
     await this.assignOpenTasks(connectivityMode);
     await this.maybeAdvancePhase();
     await this.maybeCheckpoint();
@@ -392,9 +567,25 @@ export class VertexSwarmSimulator {
     const tail = events.slice(-40);
     const missionReplay = replayMissionFromLedger(events, this.missionId);
 
+    const telemetryQueueByNode: Record<string, number> = {};
+    for (const t of this.telemetryBuf) telemetryQueueByNode[t.nodeId] = t.queueDepth;
+    const meshView = await this.meshV2.step({
+      missionId: this.missionId,
+      nowMs: this.nowMs,
+      seed: this.config.seed,
+      tickIndex: this.tickCount,
+      connectivityMode,
+      graph: snap,
+      nodes: this.nodes,
+      operatorNodeId: this.config.operatorNodeId,
+      telemetryQueueByNode,
+      liveMode: this.config.useMockFallback === false ? "live" : "mock",
+    });
+
     return {
       nowMs: this.nowMs,
       missionId: this.missionId,
+      operatorNodeId: this.config.operatorNodeId,
       phase: missionReplay.phase,
       scenario: this.config.scenario,
       preset,
@@ -413,6 +604,101 @@ export class VertexSwarmSimulator {
       blackoutActive: this.blackout.getState().active,
       seed: this.config.seed,
       tickCount: this.tickCount,
+      sharedMap: (() => {
+        const st = this.sharedMap.coverageStats();
+        return {
+          cells: this.sharedMap.snapshotCells(),
+          coverage01: st.coverage01,
+          explored: st.explored,
+          frontier: st.frontier,
+          targetCells: st.target,
+        };
+      })(),
+      exploration: explorationStates,
+      discovery: this.discoveryPipe.getCandidates().map((c) => ({
+        ...c,
+        evidence: c.evidence.map((e) => ({ ...e })),
+        world: { ...c.world },
+        trustExplanation: [...c.trustExplanation],
+      })),
+      roleHandoffs: this.roleCoord.getHistory(),
+      meshV2: meshView,
     };
+  }
+
+  async forceBlackout(durationMs = 14_000, severity: BlackoutSeverity = "partial"): Promise<void> {
+    if (!this.initialized) await this.initializeMission();
+    this.blackout.startBlackout(this.nowMs, severity, durationMs);
+    await this.commitBlackoutEnter(severity);
+  }
+
+  async recoverMesh(): Promise<void> {
+    if (!this.initialized) await this.initializeMission();
+    this.blackout.clearBlackout();
+    await this.commitSyncReconciled();
+  }
+
+  forceNodeDropout(nodeId: string): void {
+    const n = this.nodes.find((x) => x.nodeId === nodeId);
+    if (!n) return;
+    n.offline = true;
+    n.healthStatus = "offline";
+  }
+
+  /** Force a role transition for UI demos (distributed handoff, not cloud-driven). */
+  async forceRoleHandoff(nodeId: string): Promise<void> {
+    if (!this.initialized) await this.initializeMission();
+    const n = this.nodes.find((x) => x.nodeId === nodeId);
+    if (!n || n.offline) return;
+    const order: MissionNodeRole[] = ["relay", "explorer", "medic", "observer", "carrier"];
+    const to = order[Math.floor(this.rng() * order.length)];
+    if (n.role === to) return;
+    const changed = this.roleCoord.applyHandoff(n, to, "manual_ui", "demo_intervention", this.nowMs);
+    if (!changed) return;
+    this.bus.emit({ type: "role_handoff", nodeId: n.nodeId, toRole: to, reason: "manual_ui" });
+    await this.commitRoleChange(n.nodeId, n.role, "manual_ui");
+  }
+
+  meshInjectPacketLoss(delta01: number): void {
+    this.meshV2.injectPacketLoss(delta01);
+  }
+
+  meshInjectLatency(deltaMs: number): void {
+    this.meshV2.injectLatency(deltaMs);
+  }
+
+  meshTogglePartition(active: boolean): void {
+    this.meshV2.setManualPartition(active);
+  }
+
+  meshResetStress(): void {
+    this.meshV2.resetStress();
+  }
+
+  setUseMockFallback(v: boolean): void {
+    this.config.useMockFallback = v;
+  }
+
+  async injectTargetNear(nodeId: string): Promise<void> {
+    if (!this.initialized) await this.initializeMission();
+    const n = this.nodes.find((x) => x.nodeId === nodeId);
+    if (!n) return;
+    const { gx, gz } = MonotonicSharedMap.worldToGrid(n.position.x, n.position.z);
+    const cand = this.discoveryPipe.injectOperatorNote(this.missionId, gx, gz, { ...n.position }, this.nowMs);
+    const peer = this.nodes.find((x) => x.nodeId !== nodeId && !x.offline);
+    if (peer) {
+      const r = this.discoveryPipe.addEvidence({
+        missionId: this.missionId,
+        node: peer,
+        sensor: "peer_confirm",
+        confidence01: 0.74,
+        nowMs: this.nowMs,
+        scenario: this.config.scenario,
+        note: "injected_peer",
+      });
+      await this.commitTargetCandidateLedger(r.candidate, r.promoted);
+      return;
+    }
+    await this.commitTargetCandidateLedger(cand, cand.status === "confirmed");
   }
 }

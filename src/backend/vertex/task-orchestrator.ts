@@ -72,6 +72,8 @@ export class TaskOrchestrator {
     t.fallbackNodeIds = fallbacks;
     t.status = "assigned";
     t.commitProofHint = `assign:${taskId}:${winner}:${nowMs}`;
+    const winningBid = ranked[0];
+    t.assignmentReason = winningBid?.scoreReasons?.length ? winningBid.scoreReasons.join(" · ") : "score_rank";
     return { winner, fallbacks };
   }
 

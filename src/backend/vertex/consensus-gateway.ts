@@ -74,13 +74,14 @@ export function suggestRecoveryCheckpoint(
   actorId: string,
   label: string,
   nowMs: number,
+  extra?: Record<string, unknown>,
 ): VertexSuggestion {
   return {
     missionId,
     actorId,
     eventType: "recovery_checkpoint",
     plane: "vertex",
-    payload: { label },
+    payload: extra ? { label, ...extra } : { label },
     timestamp: nowMs,
   };
 }

@@ -1,21 +1,21 @@
-import type { SharedMapDelta } from "./types";
+import type { MapCellMeta, SharedMapDelta } from "./types";
 import { MonotonicSharedMap, mergeCellMeta } from "./sharedMap";
 import type { MissionLedgerEvent } from "@/backend/vertex/mission-ledger";
 
 /** Merge multiple node-local map deltas after partition — monotonic per cell. */
-export function mergePartitionMapDeltas(deltas: SharedMapDelta[]): Record<string, import("./types").MapCellMeta> {
-  const acc = new Map<string, import("./types").MapCellMeta>();
+export function mergePartitionMapDeltas(deltas: SharedMapDelta[]): Record<string, MapCellMeta> {
+  const acc = new Map<string, MapCellMeta>();
   for (const d of deltas) {
     for (const [k, remote] of Object.entries(d.cells)) {
       acc.set(k, mergeCellMeta(acc.get(k), remote));
     }
   }
-  const out: Record<string, import("./types").MapCellMeta> = {};
+  const out: Record<string, MapCellMeta> = {};
   for (const [k, v] of acc) out[k] = v;
   return out;
 }
 
-export function materializeMergedMap(cells: Record<string, import("./types").MapCellMeta>): MonotonicSharedMap {
+export function materializeMergedMap(cells: Record<string, MapCellMeta>): MonotonicSharedMap {
   return new MonotonicSharedMap(cells);
 }
 
@@ -23,7 +23,7 @@ export function materializeMergedMap(cells: Record<string, import("./types").Map
 export function checkpointPayload(args: {
   missionId: string;
   label: string;
-  mapCells: Record<string, import("./types").MapCellMeta>;
+  mapCells: Record<string, MapCellMeta>;
   ledgerTail: MissionLedgerEvent[];
 }): Record<string, unknown> {
   return {

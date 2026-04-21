@@ -5,20 +5,19 @@ import type { TargetCandidate, TargetEvidence, SensorEvidenceKind } from "./type
 
 type Rng = () => number;
 
-function evidenceId(): string {
-  return `ev-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function distance(a: { x: number; z: number }, b: { x: number; z: number }): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
 /** Weight sensor trust by scenario emphasis. */
 export function scenarioSensorWeight(scenario: MissionScenarioKind, sensor: SensorEvidenceKind): number {
-  const s = String(scenario);
-  const thermal = s.includes("wildfire") || s.includes("night") || s.includes("triage") || s.includes("flood");
-  const gas = s.includes("hazmat") || s.includes("collapsed");
-  const lidar = s.includes("tunnel") || s.includes("indoor");
+  const thermal =
+    scenario === "wildfire" ||
+    scenario === "night_mission" ||
+    scenario === "triage_operation" ||
+    scenario === "flood_rescue";
+  const gas = scenario === "hazmat" || scenario === "collapsed_building";
+  const lidar = scenario === "tunnel" || scenario === "indoor_search";
   if (sensor === "thermal" && thermal) return 1.15;
   if (sensor === "gas" && gas) return 1.2;
   if (sensor === "lidar_shape" && lidar) return 1.12;
@@ -30,9 +29,14 @@ export function scenarioSensorWeight(scenario: MissionScenarioKind, sensor: Sens
 export class TargetDiscoveryPipeline {
   private candidates = new Map<string, TargetCandidate>();
   private serial = 1;
+  private evidenceSerial = 1;
 
   nextCandidateId(): string {
     return `tgt-${this.serial++}`;
+  }
+
+  private nextEvidenceId(): string {
+    return `ev-${this.evidenceSerial++}`;
   }
 
   getCandidates(): TargetCandidate[] {
@@ -73,7 +77,7 @@ export class TargetDiscoveryPipeline {
     const { gx, gz } = MonotonicSharedMap.worldToGrid(node.position.x, node.position.z);
     const w = scenarioSensorWeight(scenario, sensor);
     const ev: TargetEvidence = {
-      id: evidenceId(),
+      id: this.nextEvidenceId(),
       sensor,
       confidence01: Math.min(1, confidence01 * w),
       nodeId: node.nodeId,
@@ -129,7 +133,7 @@ export class TargetDiscoveryPipeline {
   injectOperatorNote(missionId: string, gx: number, gz: number, world: { x: number; y: number; z: number }, nowMs: number): TargetCandidate {
     const cand = this.findOrCreateCandidate(missionId, gx, gz, world);
     cand.evidence.push({
-      id: evidenceId(),
+      id: this.nextEvidenceId(),
       sensor: "operator_note",
       confidence01: 0.75,
       nodeId: "operator",

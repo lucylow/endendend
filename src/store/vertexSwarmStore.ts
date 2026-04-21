@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { MissionScenarioKind } from "@/backend/shared/mission-scenarios";
 import { VertexSwarmSimulator, type VertexSwarmView } from "@/backend/vertex/swarm-simulator";
 import { defaultRuntimeConfig } from "@/backend/vertex/scenario-presets";
+import { vertexSimEventToRuntime, type SwarmRuntimeEvent } from "@/swarm/swarmEventStream";
 
 export type VertexSwarmStoreState = {
   simulator: VertexSwarmSimulator | null;
@@ -11,8 +12,12 @@ export type VertexSwarmStoreState = {
   seed: number;
   agentCount: number;
   useMockFallback: boolean;
+  /** Wall-clock multiplier vs simulator base tick (higher = faster). */
+  simSpeed: number;
   lastError: string | null;
   eventLog: { at: number; message: string }[];
+  /** Structured P2P / mesh timeline for replay-oriented dashboards. */
+  runtimeEvents: SwarmRuntimeEvent[];
   tickLoop: ReturnType<typeof setInterval> | null;
   /** Bus subscription cleanup while the sim loop is running */
   busUnsub: null | (() => void);
@@ -21,14 +26,25 @@ export type VertexSwarmStoreState = {
   setSeed: (n: number) => void;
   setAgentCount: (n: number) => void;
   setUseMockFallback: (v: boolean) => void;
+  setSimSpeed: (v: number) => void;
   start: () => void;
   pause: () => void;
   stepOnce: () => Promise<void>;
   reset: () => Promise<void>;
   pushLog: (message: string) => void;
+  triggerBlackout: () => Promise<void>;
+  recoverBlackout: () => Promise<void>;
+  forceDropout: (nodeId: string) => void;
+  injectTarget: (nodeId: string) => Promise<void>;
+  forceRoleHandoff: (nodeId: string) => Promise<void>;
+  meshInjectPacketLoss: (delta01: number) => void;
+  meshInjectLatency: (deltaMs: number) => void;
+  meshTogglePartition: (active: boolean) => void;
+  meshResetStress: () => void;
 };
 
 const MAX_LOG = 200;
+const MAX_RUNTIME_EVENTS = 400;
 
 export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => ({
   simulator: null,
@@ -38,8 +54,10 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
   seed: 42,
   agentCount: 5,
   useMockFallback: true,
+  simSpeed: 1,
   lastError: null,
   eventLog: [],
+  runtimeEvents: [],
   tickLoop: null,
   busUnsub: null,
 
@@ -53,6 +71,7 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
     const mid = `vertex2-${scenario}-${seed}`;
     const cfg = defaultRuntimeConfig(scenario, seed);
     cfg.tickMs = 400;
+    cfg.useMockFallback = get().useMockFallback;
     const sim = new VertexSwarmSimulator(mid, cfg, agentCount);
     set({ simulator: sim, lastError: null });
   },
@@ -74,6 +93,15 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
 
   setUseMockFallback(v) {
     set({ useMockFallback: v });
+    get().simulator?.setUseMockFallback(v);
+  },
+
+  setSimSpeed(v) {
+    const clamped = Math.max(0.25, Math.min(4, v));
+    const wasRunning = get().isRunning;
+    if (wasRunning) get().pause();
+    set({ simSpeed: clamped });
+    if (wasRunning) get().start();
   },
 
   start() {
@@ -84,10 +112,20 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
     const sim = get().simulator;
     if (!sim) return;
     const busUnsub = sim.bus.subscribe((ev) => {
+      const mapped = vertexSimEventToRuntime(ev, Date.now());
+      if (mapped) {
+        set((s) => ({ runtimeEvents: [mapped, ...s.runtimeEvents].slice(0, MAX_RUNTIME_EVENTS) }));
+      }
       if (ev.type === "ledger_committed") get().pushLog(`${ev.eventType} → ${ev.eventHash.slice(0, 10)}…`);
       if (ev.type === "task_assigned") get().pushLog(`Assigned ${ev.taskId} → ${ev.nodeId}`);
       if (ev.type === "blackout") get().pushLog(ev.active ? `Blackout (${ev.severity ?? "?"})` : "Mesh recovered");
+      if (ev.type === "map_updated")
+        get().pushLog(`Map cov ${(ev.coverage01 * 100).toFixed(0)}% · frontier ${ev.frontier}`);
+      if (ev.type === "target_candidate") get().pushLog(`Target candidate ${ev.candidateId} (${(ev.confidence01 * 100).toFixed(0)}%)`);
+      if (ev.type === "target_confirmed_bus") get().pushLog(`Target confirmed ${ev.candidateId}`);
+      if (ev.type === "role_handoff") get().pushLog(`Role ${ev.nodeId} → ${ev.toRole} (${ev.reason})`);
     });
+    const period = Math.max(16, Math.floor(sim.tickMs / get().simSpeed));
     const loop = setInterval(() => {
       void (async () => {
         try {
@@ -97,7 +135,7 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
           set({ lastError: e instanceof Error ? e.message : String(e) });
         }
       })();
-    }, sim.tickMs);
+    }, period);
     set({ isRunning: true, tickLoop: loop, busUnsub });
   },
 
@@ -123,8 +161,62 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
   async reset() {
     get().pause();
     get().initSimulator();
-    set({ view: null, eventLog: [] });
+    set({ view: null, eventLog: [], runtimeEvents: [] });
     await get().stepOnce();
+  },
+
+  async triggerBlackout() {
+    if (!get().simulator) get().initSimulator();
+    const sim = get().simulator;
+    if (sim) await sim.forceBlackout(12_000, "partial");
+    await get().stepOnce();
+  },
+
+  async recoverBlackout() {
+    const sim = get().simulator;
+    if (sim) await sim.recoverMesh();
+    await get().stepOnce();
+  },
+
+  forceDropout(nodeId: string) {
+    get().simulator?.forceNodeDropout(nodeId);
+    void get().stepOnce();
+  },
+
+  async injectTarget(nodeId: string) {
+    if (!get().simulator) get().initSimulator();
+    const sim = get().simulator;
+    if (!sim) return;
+    await sim.injectTargetNear(nodeId);
+    await get().stepOnce();
+  },
+
+  async forceRoleHandoff(nodeId: string) {
+    if (!get().simulator) get().initSimulator();
+    const sim = get().simulator;
+    if (!sim) return;
+    await sim.forceRoleHandoff(nodeId);
+    await get().stepOnce();
+  },
+
+  meshInjectPacketLoss(delta01) {
+    get().simulator?.meshInjectPacketLoss(delta01);
+    void get().stepOnce();
+  },
+
+  meshInjectLatency(deltaMs) {
+    get().simulator?.meshInjectLatency(deltaMs);
+    void get().stepOnce();
+  },
+
+  meshTogglePartition(active) {
+    get().simulator?.meshTogglePartition(active);
+    void get().stepOnce();
+  },
+
+  meshResetStress() {
+    get().simulator?.meshResetStress();
+    void get().stepOnce();
   },
 }));
 

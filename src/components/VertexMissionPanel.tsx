@@ -35,6 +35,13 @@ export function VertexMissionPanel({ view }: { view: VertexSwarmView | null }) {
           <span className="font-mono">{m.mapSummary.cellsKnown}</span>
         </div>
         <div>
+          <span className="text-muted-foreground">Live map (P2P)</span>{" "}
+          <span className="font-mono">
+            {(view.sharedMap.coverage01 * 100).toFixed(0)}% · {view.sharedMap.explored} searched · {view.sharedMap.frontier}{" "}
+            frontier
+          </span>
+        </div>
+        <div>
           <span className="text-muted-foreground">Checkpoints</span>{" "}
           <span className="font-mono">{m.recoveryCheckpoints.length}</span>
         </div>

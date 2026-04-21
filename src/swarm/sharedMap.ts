@@ -142,13 +142,15 @@ export class MonotonicSharedMap {
     let explored = 0;
     let frontier = 0;
     let target = 0;
-    let total = this.cells.size || 1;
+    const total = this.cells.size;
     for (const c of this.cells.values()) {
       if (c.state === "frontier") frontier += 1;
       if (c.state === "target") target += 1;
-      if (c.state === "searched" || c.state === "safe" || c.state === "target") explored += 1;
+      if (c.state === "seen" || c.state === "searched" || c.state === "safe" || c.state === "target" || c.state === "blocked")
+        explored += 1;
     }
-    const coverage01 = Math.min(1, explored / Math.max(1, total - frontier * 0.25));
+    const denom = Math.max(1, explored + frontier);
+    const coverage01 = Math.min(1, explored / denom);
     return { total, explored, frontier, target, coverage01 };
   }
 

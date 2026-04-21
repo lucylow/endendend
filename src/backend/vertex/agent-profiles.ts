@@ -136,25 +136,60 @@ export function buildSwarmAgent(def: BaselineAgentDef, trust01 = 0.92): SwarmAge
   };
 }
 
+const EXTRA_AGENT_ARCHETYPES: BaselineAgentDef[] = [
+  {
+    nodeId: "agent-extra-placeholder",
+    displayName: "Medic standby",
+    vendorKey: "cogniflight",
+    model: "CF-Triage",
+    role: "medic",
+    mobility: "multirotor",
+    autonomyPolicy: "rescue_continue",
+    capabilitySeed: { sensors: ["thermal", "camera"], thermalScore: 0.88, meshRangeM: 520, enduranceMin: 28 },
+  },
+  {
+    nodeId: "agent-extra-placeholder",
+    displayName: "Perimeter scout",
+    vendorKey: "aero_nordic",
+    model: "AN-Perimeter",
+    role: "explorer",
+    mobility: "fixed_wing",
+    autonomyPolicy: "scout_continue",
+    capabilitySeed: { sensors: ["optical", "imu"], outdoorScore: 0.95, maxSpeedMps: 22, meshRangeM: 480 },
+  },
+  {
+    nodeId: "agent-extra-placeholder",
+    displayName: "Hazmat sensor UGV",
+    vendorKey: "subterra",
+    model: "ST-Chem-2",
+    role: "explorer",
+    mobility: "ground",
+    autonomyPolicy: "map_indoor",
+    capabilitySeed: { sensors: ["gas", "lidar"], indoorScore: 0.9, lidarScore: 0.72, gpsImuConfidence: 0.55 },
+  },
+  {
+    nodeId: "agent-extra-placeholder",
+    displayName: "Heavy transport",
+    vendorKey: "heavylift",
+    model: "HL-SkyLift",
+    role: "carrier",
+    mobility: "multirotor",
+    autonomyPolicy: "rescue_continue",
+    capabilitySeed: { sensors: ["camera", "force_torque"], maxPayloadKg: 55, gripperScore: 0.65, meshRangeM: 620 },
+  },
+];
+
 export function createBaselineSwarmNodeList(count = 5, trust01 = 0.92): SwarmAgentNode[] {
   const need = Math.max(5, count);
   const nodes: SwarmAgentNode[] = VERTEX_BASELINE_FIVE.map((d) => buildSwarmAgent(d, trust01));
   for (let i = 5; i < need; i++) {
-    nodes.push(
-      buildSwarmAgent(
-        {
-          nodeId: `agent-backup-${i}`,
-          displayName: `Backup relay ${i}`,
-          vendorKey: "meshworks",
-          model: "MW-Relay Lite",
-          role: "relay",
-          mobility: "multirotor",
-          autonomyPolicy: "relay_maintain",
-          capabilitySeed: { sensors: ["optical"], meshRangeM: 900 },
-        },
-        trust01 - 0.02 * (i - 4),
-      ),
-    );
+    const arche = EXTRA_AGENT_ARCHETYPES[(i - 5) % EXTRA_AGENT_ARCHETYPES.length];
+    const def: BaselineAgentDef = {
+      ...arche,
+      nodeId: `agent-extra-${i}`,
+      displayName: `${arche.displayName} ${i}`,
+    };
+    nodes.push(buildSwarmAgent(def, trust01 - 0.015 * (i - 4)));
   }
   return nodes;
 }
