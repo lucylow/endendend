@@ -235,6 +235,7 @@ export function BlackoutSettlementPanel({ envelope }: { envelope: FlatMissionEnv
 
   return (
     <Card
+      id="blackout-settlement-panel"
       className="border-violet-500/35 bg-violet-500/[0.06]"
       style={{ borderColor: `${colors.settlement}55` }}
     >

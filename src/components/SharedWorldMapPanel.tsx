@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SwarmMap } from "@/components/SwarmMap";
@@ -8,18 +9,39 @@ import { PeerSectorOwnership } from "@/components/PeerSectorOwnership";
 import { FoxMqRecoveryPanel } from "@/components/FoxMqRecoveryPanel";
 import { FoxMqDebugPanel } from "@/components/FoxMqDebugPanel";
 import type { VertexSwarmView } from "@/backend/vertex/swarm-simulator";
+const BlackoutWorldMap3D = lazy(() =>
+  import("@/components/blackout/BlackoutWorldMap3D").then((m) => ({ default: m.BlackoutWorldMap3D })),
+);
 
 type Props = {
   view: VertexSwarmView | null;
   /** Drives subtle map chrome / overlays for the active SAR scenario. */
   scenario?: string | null;
+  /** When false, skip heavy Three.js map (mobile / reduced capability). */
+  show3D?: boolean;
   onSnapshot: () => void;
   onReplay: () => void;
   onStamp: () => void;
   onRecoverSample: () => void;
 };
 
-export function SharedWorldMapPanel({ view, scenario, onSnapshot, onReplay, onStamp, onRecoverSample }: Props) {
+function Map3DFallback() {
+  return (
+    <div className="h-[200px] rounded-lg border border-zinc-800 bg-zinc-950/60 flex items-center justify-center text-xs text-muted-foreground">
+      Loading 3D map…
+    </div>
+  );
+}
+
+export function SharedWorldMapPanel({
+  view,
+  scenario,
+  show3D = true,
+  onSnapshot,
+  onReplay,
+  onStamp,
+  onRecoverSample,
+}: Props) {
   const fox = view?.foxmqMap?.public ?? null;
   const profile = view?.foxmqMap?.scenarioProfile ?? null;
   const ledger = view?.foxmqMap?.ledgerTail ?? [];
@@ -49,6 +71,11 @@ export function SharedWorldMapPanel({ view, scenario, onSnapshot, onReplay, onSt
       </CardHeader>
       <CardContent className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="space-y-3 xl:col-span-2">
+          {show3D ? (
+            <Suspense fallback={<Map3DFallback />}>
+              <BlackoutWorldMap3D view={view} scenario={scenario ?? view?.scenario} />
+            </Suspense>
+          ) : null}
           <SwarmMap view={view} scenario={scenario ?? view?.scenario} />
           <FoxMqDebugPanel profile={profile} />
         </div>

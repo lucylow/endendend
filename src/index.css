@@ -365,3 +365,22 @@
     animation: pulse-ring 3s ease-in-out infinite;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .pulse-ring,
+  .border-glow-animate::before,
+  .shimmer::after {
+    animation: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: 220 18% 32%;
+    --muted-foreground: 215 18% 72%;
+    --foreground: 200 24% 96%;
+  }
+}

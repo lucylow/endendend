@@ -39,4 +39,15 @@ export default defineConfig(({ command }) => ({
   optimizeDeps: {
     include: ["onnxruntime-web", "react-dom"],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/three")) return "three";
+          if (id.includes("node_modules/@react-three")) return "r3f";
+          if (id.includes("node_modules/recharts")) return "recharts";
+        },
+      },
+    },
+  },
 }));

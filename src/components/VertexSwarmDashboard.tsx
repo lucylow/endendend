@@ -1,9 +1,22 @@
-import { lazy, Suspense, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Play, Pause, StepForward, RotateCcw, Radio, CloudOff, Database, Zap, UserX, Shuffle } from "lucide-react";
+import {
+  Play,
+  Pause,
+  StepForward,
+  RotateCcw,
+  Radio,
+  CloudOff,
+  Database,
+  Zap,
+  UserX,
+  Shuffle,
+  Bell,
+  Languages,
+} from "lucide-react";
 import { useVertexSwarm } from "@/hooks/useVertexSwarm";
 import { SwarmOverview } from "@/components/SwarmOverview";
 import { SwarmRolePanel } from "@/components/SwarmRolePanel";
@@ -41,6 +54,24 @@ import { useTashiEnvelope } from "@/hooks/useTashiSelectors";
 import { chrome, spacing, typography } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
 import type { MissionScenarioKind } from "@/backend/shared/mission-scenarios";
+import { useStreamingMetric } from "@/hooks/useStreamingMetric";
+import { useSwarmMetricsFromView } from "@/hooks/useSwarmMetricsFromView";
+import { useDemoMissionPlayback } from "@/hooks/useDemoMissionPlayback";
+import { usePersistedEnvelope } from "@/hooks/usePersistedEnvelope";
+import { useMissionPushNotifications, requestNotificationPermission } from "@/hooks/useMissionPushNotifications";
+import { useBlackoutKeyboardShortcuts } from "@/hooks/useBlackoutKeyboardShortcuts";
+import { BlackoutStreamingCharts } from "@/components/blackout/BlackoutStreamingCharts";
+import { TelemetryLiveTable } from "@/components/blackout/TelemetryLiveTable";
+import { MissionPhaseTimeline } from "@/components/blackout/MissionPhaseTimeline";
+import { HardwareBridgePanel } from "@/components/blackout/HardwareBridgePanel";
+import { YoloVisionPanel } from "@/components/blackout/YoloVisionPanel";
+import { DevFailureInjectionPanel } from "@/components/blackout/DevFailureInjectionPanel";
+import { BlackoutMobileCompanion } from "@/components/blackout/BlackoutMobileCompanion";
+import { ConnectionStateBanner } from "@/components/ConnectionStateBanner";
+import { BlackoutTour, shouldAutoStartBlackoutTour } from "@/components/blackout/BlackoutTour";
+import { useTheme } from "next-themes";
+import { t, type BlackoutLang } from "@/lib/i18n/blackoutDashboard";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const SharedWorldMapPanel = lazy(() =>
   import("@/components/SharedWorldMapPanel").then((m) => ({ default: m.SharedWorldMapPanel })),
@@ -92,11 +123,74 @@ export function VertexSwarmDashboard() {
     replayFoxMapHistory,
     stampFoxMapCell,
     recoverFoxMapNode,
+    runtimeEvents,
+    recoverDrone,
+    emergencyHardwareStop,
+    meshSetStressPreset,
   } = useVertexSwarm();
   const { simSpeed, setSimSpeed } = useSimulationMode();
   const blackout = useBlackoutMode();
   const envelope = useTashiEnvelope();
   const mapAnchor = useRef<HTMLDivElement | null>(null);
+  const missionStartRef = useRef<number | null>(null);
+  const { theme, setTheme } = useTheme();
+  const [lang, setLang] = useState<BlackoutLang>("en");
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoSpeed, setDemoSpeed] = useState(1);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
+  const [netOnline, setNetOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+
+  const metricsWs = import.meta.env.VITE_SWARM_METRICS_WS as string | undefined;
+  const { points: metricPoints, pushPoint, clear: clearMetrics } = useStreamingMetric({
+    wsUrl: metricsWs || null,
+    enabled: Boolean(metricsWs),
+  });
+
+  useSwarmMetricsFromView(view, pushPoint, { enabled: !demoMode && !metricsWs });
+  useDemoMissionPlayback(pushPoint, { active: demoMode && !metricsWs, speed: demoSpeed, loop: true });
+  usePersistedEnvelope(envelope);
+  useMissionPushNotifications(envelope?.alerts ?? []);
+
+  useBlackoutKeyboardShortcuts(
+    {
+      onKillSelected: () => forceDropout("agent-scout-a"),
+      onOpenSettlement: () => document.getElementById("blackout-settlement-panel")?.scrollIntoView({ behavior: "smooth" }),
+      onResetChain: () => meshResetStress(),
+    },
+    true,
+  );
+
+  useEffect(() => {
+    if (view && missionStartRef.current == null) missionStartRef.current = view.nowMs;
+  }, [view]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const fn = () => setIsDesktop(mq.matches);
+    fn();
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+
+  useEffect(() => {
+    const up = () => setNetOnline(true);
+    const down = () => setNetOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDesktop && shouldAutoStartBlackoutTour()) setTourOpen(true);
+  }, [isDesktop]);
+
+  useEffect(() => {
+    clearMetrics();
+  }, [demoMode, clearMetrics]);
 
   const onlineCount = envelope?.nodes.filter((n) => n.health === "online" || n.health === "syncing").length ?? 0;
   const meshBadgeVariant: "default" | "secondary" | "destructive" =
@@ -129,11 +223,9 @@ export function VertexSwarmDashboard() {
         <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-sky-400/90">BLACKOUT</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Swarm command centre</h1>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Vertex 2.0 mesh, FoxMQ world map, and deterministic replay — scenario-first layout with a single flat envelope
-              across panels.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("title", lang)}</h1>
+            <p className="text-sm text-muted-foreground leading-relaxed">{t("subtitle", lang)}</p>
+            <p className="text-[10px] text-zinc-500 font-mono">{t("shortcuts", lang)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={meshBadgeVariant} className="font-mono text-[10px] gap-1">
@@ -143,9 +235,55 @@ export function VertexSwarmDashboard() {
             <Badge variant="outline" className="text-[10px] font-mono">
               {blackout.label}
             </Badge>
+            <Select value={lang} onValueChange={(v) => setLang(v as BlackoutLang)}>
+              <SelectTrigger className="h-11 w-[100px] text-xs" aria-label="Language">
+                <Languages className="w-3.5 h-3.5 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">EN</SelectItem>
+                <SelectItem value="es">ES</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-11 text-xs"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "light" ? t("themeDark", lang) : t("themeLight", lang)}
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="min-h-11 gap-1 text-xs" onClick={() => void requestNotificationPermission()}>
+              <Bell className="w-3.5 h-3.5" aria-hidden />
+              {t("notify", lang)}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="min-h-11 text-xs" onClick={() => setTourOpen(true)}>
+              {t("tour", lang)}
+            </Button>
+            <Button
+              size="sm"
+              variant={demoMode ? "secondary" : "outline"}
+              className="min-h-11 text-xs font-mono"
+              onClick={() => setDemoMode((d) => !d)}
+            >
+              {demoMode ? t("demo", lang) : t("live", lang)}
+            </Button>
+            {demoMode ? (
+              <Select value={String(demoSpeed)} onValueChange={(v) => setDemoSpeed(Number(v))}>
+                <SelectTrigger className="h-11 w-[88px] text-xs" aria-label="Demo speed">
+                  <SelectValue placeholder="1×" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1×</SelectItem>
+                  <SelectItem value="2">2×</SelectItem>
+                  <SelectItem value="4">4×</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
             <Button size="sm" variant={isRunning ? "secondary" : "default"} className="min-h-11" onClick={() => (isRunning ? pause() : start())} aria-label={isRunning ? "Pause simulation" : "Run simulation"}>
               {isRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              {isRunning ? "Pause" : "Run"}
+              {isRunning ? t("pause", lang) : t("run", lang)}
             </Button>
             <Button size="sm" variant="outline" className="min-h-11" onClick={() => void stepOnce()} aria-label="Step simulation once">
               <StepForward className="w-3.5 h-3.5" /> Step
@@ -160,6 +298,13 @@ export function VertexSwarmDashboard() {
           onChange={(s: ScenarioKey) => setScenario(s as MissionScenarioKind)}
         />
       </header>
+
+      <BlackoutTour run={tourOpen} onClose={() => setTourOpen(false)} />
+      <ConnectionStateBanner lastUpdateMs={view?.nowMs ?? null} />
+
+      <div className="md:hidden mb-4">
+        <BlackoutMobileCompanion view={view} envelope={flatForScenario} offline={!netOnline} />
+      </div>
 
       {lastError ? (
         <p className="text-sm text-destructive border border-destructive/30 rounded-lg px-3 py-2 mb-4" role="alert">
@@ -238,6 +383,7 @@ export function VertexSwarmDashboard() {
               <SharedWorldMapPanel
                 view={view}
                 scenario={scenario}
+                show3D={isDesktop}
                 onSnapshot={() => snapshotFoxMap()}
                 onReplay={() => replayFoxMapHistory()}
                 onStamp={() => stampFoxMapCell(0, 0)}
@@ -258,6 +404,29 @@ export function VertexSwarmDashboard() {
           <BlackoutRecoveryPanel envelope={flatForScenario} />
           <BlackoutTaskAllocationPanel view={view} />
         </aside>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+        <div className="xl:col-span-2">
+          <BlackoutStreamingCharts points={metricPoints} />
+        </div>
+        <TelemetryLiveTable view={view} />
+      </div>
+
+      {view ? (
+        <div className="mb-6">
+          <MissionPhaseTimeline
+            phase={view.phase}
+            runtimeEvents={runtimeEvents}
+            missionStartMs={missionStartRef.current ?? view.nowMs - 1}
+            nowMs={view.nowMs}
+          />
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <HardwareBridgePanel view={view} onEmergencyStop={() => void emergencyHardwareStop()} />
+        <YoloVisionPanel />
       </div>
 
       <Card variant="mission" className="mb-6 border-zinc-800">
@@ -394,7 +563,7 @@ export function VertexSwarmDashboard() {
           <CardTitle className="text-sm">Event log</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[120px] text-xs font-mono text-muted-foreground">
+          <ScrollArea className="h-[120px] text-xs font-mono text-muted-foreground" aria-live="polite" aria-relevant="additions text">
             {eventLog.map((e, i) => (
               <div key={i}>
                 {new Date(e.at).toLocaleTimeString()} — {e.message}
@@ -405,26 +574,25 @@ export function VertexSwarmDashboard() {
       </Card>
 
       {import.meta.env.DEV ? (
-        <Card className="mt-6 border-dashed border-amber-500/40 bg-amber-500/[0.04]">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm text-amber-200/90">Dev — failure injection</CardTitle>
-            <CardDescription className="text-xs">Same controls as the toolbar; grouped for demos.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => meshInjectPacketLoss(0.12)}>
-              Packet loss
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => meshInjectLatency(180)}>
-              Latency spike
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => meshTogglePartition(true)}>
-              Partition on
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => meshResetStress()}>
-              Reset stress
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="mt-6">
+          <DevFailureInjectionPanel
+            nodes={view?.nodes ?? []}
+            onKill={(id) => forceDropout(id)}
+            onRestore={(id) => void recoverDrone(id)}
+            onLoss={(_id: string) => {
+              meshInjectPacketLoss(0.5);
+            }}
+            onDelay={(_id: string) => {
+              meshInjectLatency(200);
+            }}
+            onKillAllRelays={() => {
+              (view?.nodes ?? []).filter((n) => n.role === "relay").forEach((n) => forceDropout(n.nodeId));
+            }}
+            onBurstLoss={() => meshInjectPacketLoss(0.35)}
+            onTunnelPreset={() => meshSetStressPreset("tunnel_connectivity")}
+            onPartitionPreset={() => meshTogglePartition(true)}
+          />
+        </div>
       ) : null}
     </div>
   );

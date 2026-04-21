@@ -124,7 +124,7 @@ export function SettlementManifestBlock({ envelope, manifestHash }: { envelope: 
 
   const exportArc = async () => {
     pushHistory({ at: Date.now(), missionId: envelope.missionId, manifestHash, phase: envelope.phase });
-    toast.message("Arc export (demo)", {
+    toast("Arc export (demo)", {
       description: "POST /api/swarm/settlement not wired — logged locally for judges.",
     });
     const fakeHash = `0x${(await sha256hex(manifestHash + envelope.missionId)).slice(0, 40)}`;
