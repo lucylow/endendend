@@ -58,7 +58,6 @@ class LovableCloudSink:
         self,
         *,
         base_url: str,
-        swarm_id: str,
         vertex_payload_fn: Callable[[], Dict[str, Any]],
         telemetry_row_fn: Callable[[], Dict[str, Any]],
         bearer_token: str = "",
@@ -128,7 +127,6 @@ def maybe_start_lovable_cloud_sink(
     t_int = _env_float("LOVABLE_TELEMETRY_INTERVAL_S", 0.25)
     sink = LovableCloudSink(
         base_url=base,
-        swarm_id=sid,
         vertex_payload_fn=lambda: ctrl.get_lovable_cloud_vertex_payload(sid),
         telemetry_row_fn=lambda: ctrl.get_lovable_cloud_telemetry_row(sid),
         bearer_token=token,
