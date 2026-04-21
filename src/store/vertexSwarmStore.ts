@@ -3,10 +3,14 @@ import type { MissionScenarioKind } from "@/backend/shared/mission-scenarios";
 import { VertexSwarmSimulator, type VertexSwarmView } from "@/backend/vertex/swarm-simulator";
 import { defaultRuntimeConfig } from "@/backend/vertex/scenario-presets";
 import { vertexSimEventToRuntime, type SwarmRuntimeEvent } from "@/swarm/swarmEventStream";
+import type { FlatMissionEnvelope } from "@/lib/state/types";
+import { vertexViewToFlatEnvelope } from "@/lib/state/vertexViewToFlat";
 
 export type VertexSwarmStoreState = {
   simulator: VertexSwarmSimulator | null;
   view: VertexSwarmView | null;
+  /** Flat SAR envelope derived from ``view`` — single contract for scenario / ops panels. */
+  flatEnvelope: FlatMissionEnvelope | null;
   isRunning: boolean;
   scenario: MissionScenarioKind;
   seed: number;
@@ -55,6 +59,7 @@ const MAX_RUNTIME_EVENTS = 400;
 export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => ({
   simulator: null,
   view: null,
+  flatEnvelope: null,
   isRunning: false,
   scenario: "collapsed_building",
   seed: 42,
@@ -140,7 +145,7 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
       void (async () => {
         try {
           const v = await sim.tick();
-          set({ view: v, lastError: null });
+          set({ view: v, flatEnvelope: vertexViewToFlatEnvelope(v), lastError: null });
         } catch (e) {
           set({ lastError: e instanceof Error ? e.message : String(e) });
         }
@@ -162,7 +167,7 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
     if (!sim) return;
     try {
       const v = await sim.tick();
-      set({ view: v, lastError: null });
+      set({ view: v, flatEnvelope: vertexViewToFlatEnvelope(v), lastError: null });
     } catch (e) {
       set({ lastError: e instanceof Error ? e.message : String(e) });
     }
@@ -171,7 +176,7 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
   async reset() {
     get().pause();
     get().initSimulator();
-    set({ view: null, eventLog: [], runtimeEvents: [] });
+    set({ view: null, flatEnvelope: null, eventLog: [], runtimeEvents: [] });
     await get().stepOnce();
   },
 

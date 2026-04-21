@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { VertexSwarmView } from "@/backend/vertex/swarm-simulator";
 import { parseCellKey } from "@/swarm/sharedMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const STATE_COLORS: Record<string, string> = {
   unknown: "bg-muted/40",
@@ -16,9 +17,26 @@ const STATE_COLORS: Record<string, string> = {
   unreachable: "bg-neutral-700/55",
 };
 
-type Props = { view: VertexSwarmView | null };
+function scenarioOverlayClass(scenario?: string | null): string {
+  switch (scenario) {
+    case "wildfire":
+      return "ring-2 ring-red-500/35 shadow-[inset_0_0_48px_rgba(239,68,68,0.12)]";
+    case "flood_rescue":
+      return "ring-2 ring-sky-500/35 shadow-[inset_0_0_48px_rgba(14,165,233,0.1)]";
+    case "hazmat":
+      return "ring-2 ring-amber-500/35 shadow-[inset_0_0_48px_rgba(245,158,11,0.1)]";
+    case "tunnel":
+      return "ring-2 ring-emerald-500/35 shadow-[inset_0_0_48px_rgba(16,185,129,0.08)]";
+    case "collapsed_building":
+      return "ring-2 ring-orange-500/30 shadow-[inset_0_0_40px_rgba(249,115,22,0.1)]";
+    default:
+      return "";
+  }
+}
 
-export function SwarmMap({ view }: Props) {
+type Props = { view: VertexSwarmView | null; scenario?: string | null };
+
+export function SwarmMap({ view, scenario }: Props) {
   const { grid, agents, bounds } = useMemo(() => {
     if (!view) return { grid: [] as string[][], agents: [] as { gx: number; gz: number; id: string }[], bounds: null };
     const cells = view.sharedMap.cells;
@@ -91,9 +109,12 @@ export function SwarmMap({ view }: Props) {
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent className="overflow-x-auto" id="swarm-map-panel">
         <div
-          className="inline-grid gap-px p-1 rounded-md border border-border/50 bg-border/30"
+          className={cn(
+            "inline-grid gap-px p-1 rounded-md border border-border/50 bg-border/30 transition-shadow duration-300",
+            scenarioOverlayClass(scenario ?? view.scenario),
+          )}
           style={{
             gridTemplateColumns: `repeat(${bounds.w}, minmax(0, 10px))`,
           }}

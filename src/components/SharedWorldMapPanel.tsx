@@ -11,13 +11,15 @@ import type { VertexSwarmView } from "@/backend/vertex/swarm-simulator";
 
 type Props = {
   view: VertexSwarmView | null;
+  /** Drives subtle map chrome / overlays for the active SAR scenario. */
+  scenario?: string | null;
   onSnapshot: () => void;
   onReplay: () => void;
   onStamp: () => void;
   onRecoverSample: () => void;
 };
 
-export function SharedWorldMapPanel({ view, onSnapshot, onReplay, onStamp, onRecoverSample }: Props) {
+export function SharedWorldMapPanel({ view, scenario, onSnapshot, onReplay, onStamp, onRecoverSample }: Props) {
   const fox = view?.foxmqMap?.public ?? null;
   const profile = view?.foxmqMap?.scenarioProfile ?? null;
   const ledger = view?.foxmqMap?.ledgerTail ?? [];
@@ -47,7 +49,7 @@ export function SharedWorldMapPanel({ view, onSnapshot, onReplay, onStamp, onRec
       </CardHeader>
       <CardContent className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="space-y-3 xl:col-span-2">
-          <SwarmMap view={view} />
+          <SwarmMap view={view} scenario={scenario ?? view?.scenario} />
           <FoxMqDebugPanel profile={profile} />
         </div>
         <div className="space-y-3">

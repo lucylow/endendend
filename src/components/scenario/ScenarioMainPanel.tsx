@@ -2,12 +2,14 @@ import type { ScenarioKey } from "./ScenarioSwitcher";
 import type { TashiStateEnvelope } from "@/types/tashi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { typography } from "@/lib/design-tokens";
+import { cn } from "@/lib/utils";
 
 export function ScenarioMainPanel({
   scenario,
   envelope,
 }: {
-  scenario: ScenarioKey;
+  scenario: ScenarioKey | string;
   envelope: TashiStateEnvelope;
 }) {
   const roster = envelope.backend?.mission.roster;
@@ -29,9 +31,9 @@ export function ScenarioMainPanel({
       ? Math.min(99, Math.round((relayish / Math.max(1, envelope.nodes.length)) * 100))
       : 0;
     return (
-      <Card className="border-orange-500/20 bg-orange-500/5">
+      <Card variant="mission" className="border-orange-500/25 bg-orange-500/[0.07]">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className={cn("flex flex-wrap items-center justify-between gap-2 text-base", typography.sans)}>
             Collapsed Building Command View
             <Badge variant="secondary">Relay + Triage Focus</Badge>
           </CardTitle>
@@ -51,9 +53,9 @@ export function ScenarioMainPanel({
     const heatStress =
       envelope.mapSummary.coveragePercent > 70 ? "elevated" : envelope.mapSummary.coveragePercent > 40 ? "moderate" : "watch";
     return (
-      <Card className="border-red-500/20 bg-red-500/5">
+      <Card variant="mission" className="border-red-500/25 bg-red-500/[0.07]">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className={cn("flex flex-wrap items-center justify-between gap-2 text-base", typography.sans)}>
             Wildfire Command View
             <Badge variant="secondary">Thermal + Evacuation Focus</Badge>
           </CardTitle>
@@ -69,10 +71,74 @@ export function ScenarioMainPanel({
     );
   }
 
+  if (scenario === "flood_rescue") {
+    const depthHint = Math.round(envelope.mapSummary.coveragePercent * 0.8);
+    const lanes = Math.max(1, relayish);
+    return (
+      <Card variant="mission" className="border-sky-500/25 bg-sky-500/[0.06]">
+        <CardHeader>
+          <CardTitle className={cn("flex flex-wrap items-center justify-between gap-2 text-base", typography.sans)}>
+            Flood Rescue Command View
+            <Badge variant="secondary">Water depth + transport lanes</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <Metric label="Depth index (sim)" value={`${depthHint}`} />
+          <Metric label="Transport / relay lanes" value={`${lanes}`} />
+          <Metric label="Coverage" value={`${envelope.mapSummary.coveragePercent.toFixed(1)}%`} />
+          <Metric label="Targets" value={`${envelope.mapSummary.targets.length}`} />
+          {meshLatency != null ? <Metric label="Mesh latency (sim)" value={`${meshLatency} ms`} /> : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (scenario === "hazmat") {
+    const plume = envelope.mapSummary.targets.length;
+    const exclusion = envelope.alerts.filter((a) => a.severity === "critical").length;
+    return (
+      <Card variant="mission" className="border-amber-500/30 bg-amber-500/[0.06]">
+        <CardHeader>
+          <CardTitle className={cn("flex flex-wrap items-center justify-between gap-2 text-base", typography.sans)}>
+            Hazmat Command View
+            <Badge variant="secondary">Gas readings + exclusion zones</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <Metric label="Contour sources" value={`${plume}`} />
+          <Metric label="Critical safety flags" value={`${exclusion}`} />
+          <Metric label="Coverage" value={`${envelope.mapSummary.coveragePercent.toFixed(1)}%`} />
+          {meshLatency != null ? <Metric label="Mesh latency (sim)" value={`${meshLatency} ms`} /> : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (scenario === "tunnel") {
+    const depth = Math.min(99, envelope.mapSummary.exploredCells);
+    const dead = envelope.nodes.filter((n) => n.health === "stale").length;
+    return (
+      <Card variant="mission" className="border-emerald-500/25 bg-emerald-500/[0.06]">
+        <CardHeader>
+          <CardTitle className={cn("flex flex-wrap items-center justify-between gap-2 text-base", typography.sans)}>
+            Tunnel Command View
+            <Badge variant="secondary">Relay depth + dead zones</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <Metric label="Relay chain depth (cells)" value={`${depth}`} />
+          <Metric label="Stale / dead-zone nodes" value={`${dead}`} />
+          <Metric label="Coverage" value={`${envelope.mapSummary.coveragePercent.toFixed(1)}%`} />
+          {meshLatency != null ? <Metric label="Mesh latency (sim)" value={`${meshLatency} ms`} /> : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
+    <Card variant="mission" className="border-zinc-700/80">
       <CardHeader>
-        <CardTitle>Scenario Command View</CardTitle>
+        <CardTitle className={cn("text-base", typography.sans)}>Scenario Command View</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-3 text-zinc-400">
         <Metric label="Active nodes" value={`${envelope.nodes.length}`} />
