@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { LucideIcon } from "lucide-react";
 import { Building2, Flame, Waves, ShieldAlert, Mountain } from "lucide-react";
 
 export type ScenarioKey =
@@ -12,7 +13,7 @@ export type ScenarioKey =
 const scenarios: {
   key: ScenarioKey;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   accent: string;
 }[] = [
   { key: "collapsed_building", label: "Collapsed Building", icon: Building2, accent: "text-orange-400" },

@@ -60,6 +60,7 @@ export function FallenComradeScenario() {
   const reallocated = useSwarmStore((s) => s.reallocated);
   const globalMap = useSwarmStore((s) => s.globalMap);
   const wsConnected = useSwarmStore((s) => s.wsConnected);
+  const lastError = useSwarmStore((s) => s.lastError);
 
   let liveCells = 0;
   if (globalMap.length > 0) {
@@ -92,6 +93,9 @@ export function FallenComradeScenario() {
         <div className="mt-1 text-[11px] text-zinc-400">
           {wsConnected ? "Live Webots / mock WS" : "Built-in mock engine (60fps)"}
         </div>
+        {lastError ? (
+          <div className="mt-2 max-w-[min(100%,22rem)] text-[11px] leading-snug text-red-300">{lastError}</div>
+        ) : null}
       </div>
       <FailureOverlay />
       <ReallocAnim />

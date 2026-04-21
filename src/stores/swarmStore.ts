@@ -376,49 +376,54 @@ export const useSwarmStore = create<SwarmStore>()(
     },
 
     ingestMockFrame: (j) => {
-      const prev = get();
-      const rovers = (j.rovers ?? prev.rovers).map((r, i) => normalizeRover(r, i));
-      const groundRovers = (j.ground_rovers ?? prev.groundRovers).map((r, i) => normalizeRover(r, i));
-      const globalMap = j.global_map ?? prev.globalMap;
-      const aerial = j.aerial !== undefined ? j.aerial : prev.aerial;
-      const relayChain = j.relay_chain ?? prev.relayChain;
-      const signalQuality = j.signal_quality ?? prev.signalQuality;
+      try {
+        const prev = get();
+        const rovers = (j.rovers ?? prev.rovers).map((r, i) => normalizeRover(r, i));
+        const groundRovers = (j.ground_rovers ?? prev.groundRovers).map((r, i) => normalizeRover(r, i));
+        const globalMap = j.global_map ?? prev.globalMap;
+        const aerial = j.aerial !== undefined ? j.aerial : prev.aerial;
+        const relayChain = j.relay_chain ?? prev.relayChain;
+        const signalQuality = j.signal_quality ?? prev.signalQuality;
 
-      const fallenVictims = Array.isArray(j.victims) ? j.victims : prev.fallenVictims;
-      const fallenObstacles = Array.isArray(j.obstacles) ? j.obstacles : prev.fallenObstacles;
-      const fallenEvents = Array.isArray(j.events) ? j.events : prev.fallenEvents;
-      const fallenScenarioMeta =
-        j.scenario_meta && typeof j.scenario_meta === "object" && !Array.isArray(j.scenario_meta)
-          ? j.scenario_meta
-          : prev.fallenScenarioMeta;
+        const fallenVictims = Array.isArray(j.victims) ? j.victims : prev.fallenVictims;
+        const fallenObstacles = Array.isArray(j.obstacles) ? j.obstacles : prev.fallenObstacles;
+        const fallenEvents = Array.isArray(j.events) ? j.events : prev.fallenEvents;
+        const fallenScenarioMeta =
+          j.scenario_meta && typeof j.scenario_meta === "object" && !Array.isArray(j.scenario_meta)
+            ? j.scenario_meta
+            : prev.fallenScenarioMeta;
 
-      const partial: Partial<SwarmStreamState> = {
-        rovers,
-        globalMap,
-        reallocated: j.reallocated ?? prev.reallocated,
-        time: typeof j.time === "number" ? j.time : prev.time,
-        cycleT: typeof j.cycle_t === "number" ? j.cycle_t : prev.cycleT,
-        timeline: j.timeline && typeof j.timeline === "object" ? j.timeline : prev.timeline,
-        aerial,
-        groundRovers,
-        auction: mergeAuction(prev.auction, j.auction),
-        rescues_completed: j.rescues_completed ?? prev.rescues_completed,
-        tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
-        relayChain,
-        signalQuality,
-        fallenVictims,
-        fallenObstacles,
-        fallenEvents,
-        fallenScenarioMeta,
-      };
+        const partial: Partial<SwarmStreamState> = {
+          rovers,
+          globalMap,
+          reallocated: j.reallocated ?? prev.reallocated,
+          time: typeof j.time === "number" ? j.time : prev.time,
+          cycleT: typeof j.cycle_t === "number" ? j.cycle_t : prev.cycleT,
+          timeline: j.timeline && typeof j.timeline === "object" ? j.timeline : prev.timeline,
+          aerial,
+          groundRovers,
+          auction: mergeAuction(prev.auction, j.auction),
+          rescues_completed: j.rescues_completed ?? prev.rescues_completed,
+          tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
+          relayChain,
+          signalQuality,
+          fallenVictims,
+          fallenObstacles,
+          fallenEvents,
+          fallenScenarioMeta,
+        };
 
-      const scenario = inferScenario({ ...prev, ...partial }, prev);
+        const scenario = inferScenario({ ...prev, ...partial }, prev);
 
-      set({
-        ...partial,
-        scenario,
-        lastError: null,
-      });
+        set({
+          ...partial,
+          scenario,
+          lastError: null,
+        });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        set({ lastError: `Mock frame ingest failed: ${message}` });
+      }
     },
   })),
 );
