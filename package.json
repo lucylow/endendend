@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "webots:fallen": "concurrently -n webots,open -c cyan,green \"webots worlds/fallen_comrade.wbt\" \"wait-on tcp:127.0.0.1:8080 && node scripts/open-browser.mjs http://127.0.0.1:8080/scenarios/fallen\"",
+    "webots:handoff": "concurrently -n webots,open -c cyan,green \"webots worlds/blind_handoff.wbt\" \"wait-on tcp:127.0.0.1:8080 && node scripts/open-browser.mjs http://127.0.0.1:8080/scenarios/handoff\"",
+    "webots:daisy": "concurrently -n webots,open -c cyan,green \"webots worlds/dynamic_daisy_chain.wbt\" \"wait-on tcp:127.0.0.1:8080 && node scripts/open-browser.mjs http://127.0.0.1:8080/scenarios/daisy\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -87,16 +90,19 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "lovable-tagger": "^1.1.13",
+    "open": "^10.1.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
+    "wait-on": "^8.0.1",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
   }

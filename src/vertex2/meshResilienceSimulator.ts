@@ -73,6 +73,10 @@ export class MeshResilienceSimulator {
     this.injector.toggleManualPartition(active);
   }
 
+  getManualPartitionActive(): boolean {
+    return this.injector.manualPartition;
+  }
+
   resetStress(): void {
     this.injector.reset();
   }

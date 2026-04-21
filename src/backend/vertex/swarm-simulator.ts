@@ -26,6 +26,13 @@ import type { MissionLedgerEvent } from "@/backend/vertex/mission-ledger";
 import type { LocalAutonomyDirective } from "@/backend/vertex/fallback-coordinator";
 import { MonotonicSharedMap } from "@/swarm/sharedMap";
 import { ExplorationCoordinator } from "@/swarm/explorationManager";
+import { FoxMqMapSyncEngine } from "@/foxmq/mapSyncEngine";
+import { FOXMQ_DEFAULT_MAP_ID } from "@/foxmq/types";
+import { scenarioMapProfile } from "@/foxmq/mockWorldFactory";
+import { checksumDeltaCells } from "@/foxmq/mapDelta";
+import type { FoxMqMapPublicState } from "@/foxmq/mapSyncEngine";
+import type { MapLedgerEvent } from "@/foxmq/mapLedger";
+import type { ScenarioMapProfile } from "@/foxmq/types";
 import { TargetDiscoveryPipeline } from "@/swarm/targetDiscovery";
 import { RoleHandoffCoordinator } from "@/swarm/roleManager";
 import type { TargetCandidate, NodeExplorationState, RoleHandoffRecord } from "@/swarm/types";
@@ -71,6 +78,11 @@ export type VertexSwarmView = {
   roleHandoffs: RoleHandoffRecord[];
   /** Vertex 2.0 mesh resilience proof layer (synthetic stress, discovery, consensus, replay). */
   meshV2: MeshResiliencePublicView | null;
+  foxmqMap: {
+    public: FoxMqMapPublicState;
+    ledgerTail: MapLedgerEvent[];
+    scenarioProfile: ScenarioMapProfile;
+  };
 };
 
 export class VertexSwarmSimulator {
@@ -84,6 +96,7 @@ export class VertexSwarmSimulator {
   explorationCoord = new ExplorationCoordinator();
   discoveryPipe = new TargetDiscoveryPipeline();
   roleCoord = new RoleHandoffCoordinator();
+  foxMapSync: FoxMqMapSyncEngine;
   readonly tickMs: number;
   readonly meshV2: MeshResilienceSimulator;
 
@@ -107,6 +120,7 @@ export class VertexSwarmSimulator {
     this.tickMs = config.tickMs;
     this.ledger = new MissionLedger();
     this.meshV2 = new MeshResilienceSimulator(config.seed);
+    this.foxMapSync = new FoxMqMapSyncEngine(missionId, FOXMQ_DEFAULT_MAP_ID, Date.now());
     this.nodes = createBaselineSwarmNodeList(agentCount, 0.9);
     this.spreadInitialPositions();
   }
@@ -137,6 +151,7 @@ export class VertexSwarmSimulator {
     this.explorationCoord = new ExplorationCoordinator();
     this.discoveryPipe = new TargetDiscoveryPipeline();
     this.roleCoord = new RoleHandoffCoordinator();
+    this.foxMapSync.reset(this.nowMs);
     for (const n of this.nodes) {
       n.offline = false;
       n.healthStatus = "ok";
@@ -513,8 +528,28 @@ export class VertexSwarmSimulator {
       nowMs: this.nowMs,
       rng: this.rng,
       scenarioMapHint: preset.mapBehavior,
+      scenario: this.config.scenario,
     });
-    this.explorationCoord.gossipMapDeltas(this.sharedMap, snap, this.nowMs, this.rng);
+
+    const foxPublic = this.foxMapSync.step({
+      map: this.sharedMap,
+      graph: snap,
+      nowMs: this.nowMs,
+      rng: this.rng,
+      connectivityMode,
+      partitionManual: this.meshV2.getManualPartitionActive(),
+      liveFoxAvailable: this.config.useMockFallback === false,
+      mockFallback: this.config.useMockFallback !== false,
+      operatorNodeId: this.config.operatorNodeId,
+      offlineNodeIds: this.nodes.filter((n) => n.offline).map((n) => n.nodeId),
+    });
+    this.bus.emit({
+      type: "foxmq_sync",
+      mapVersion: foxPublic.mapVersion,
+      dirtyDeltas: foxPublic.dirtyDeltaCount,
+      syncLagMs: foxPublic.syncLagMs,
+      partitionBuffer: foxPublic.partitionBufferSize,
+    });
 
     for (const n of active) {
       const { gx, gz } = MonotonicSharedMap.worldToGrid(n.position.x, n.position.z);
@@ -623,6 +658,11 @@ export class VertexSwarmSimulator {
       })),
       roleHandoffs: this.roleCoord.getHistory(),
       meshV2: meshView,
+      foxmqMap: {
+        public: foxPublic,
+        ledgerTail: this.foxMapSync.ledger.tail(80),
+        scenarioProfile: scenarioMapProfile(this.config.scenario),
+      },
     };
   }
 
@@ -643,6 +683,36 @@ export class VertexSwarmSimulator {
     if (!n) return;
     n.offline = true;
     n.healthStatus = "offline";
+    this.foxMapSync.ledger.append({
+      nodeId,
+      eventType: "node_disconnect",
+      affectedCells: [],
+      relayRoute: [nodeId],
+      commitStatus: "committed",
+      timestamp: this.nowMs,
+    });
+  }
+
+  async forceNodeRecovery(nodeId: string): Promise<void> {
+    if (!this.initialized) await this.initializeMission();
+    const n = this.nodes.find((x) => x.nodeId === nodeId);
+    if (!n) return;
+    n.offline = false;
+    n.healthStatus = "ok";
+    const cellCount = Object.keys(this.sharedMap.snapshotCells()).length;
+    this.foxMapSync.ledger.append({
+      nodeId,
+      eventType: "node_reconnect",
+      affectedCells: [],
+      relayRoute: [nodeId, this.config.operatorNodeId],
+      commitStatus: "committed",
+      timestamp: this.nowMs,
+      payload: { collectiveCells: cellCount },
+    });
+    this.bus.emit({
+      type: "recovery",
+      message: `${nodeId} rehydrated from collective map (${cellCount} fleet-known cells)`,
+    });
   }
 
   /** Force a role transition for UI demos (distributed handoff, not cloud-driven). */
@@ -677,6 +747,49 @@ export class VertexSwarmSimulator {
 
   setUseMockFallback(v: boolean): void {
     this.config.useMockFallback = v;
+  }
+
+  /** Commit a collective snapshot row to the FoxMQ-style map ledger (demo / audit). */
+  snapshotFoxMapLedger(): void {
+    const cells = this.sharedMap.snapshotCells();
+    this.foxMapSync.ledger.append({
+      nodeId: this.config.operatorNodeId,
+      eventType: "snapshot_commit",
+      affectedCells: Object.keys(cells).slice(0, 600),
+      relayRoute: ["operator", "mesh"],
+      commitStatus: "committed",
+      payload: { checksum: checksumDeltaCells(cells) },
+    });
+    this.bus.emit({
+      type: "recovery",
+      message: `Fleet map snapshot recorded (${Object.keys(cells).length} cells, checksum ${checksumDeltaCells(cells).slice(0, 10)}…)`,
+    });
+  }
+
+  /** Append a replay marker — inspectable in the distributed-memory UI. */
+  replayFoxmqLedger(): void {
+    const depth = this.foxMapSync.ledger.all().length;
+    this.foxMapSync.ledger.append({
+      nodeId: "replay",
+      eventType: "replay_tick",
+      affectedCells: [],
+      relayRoute: ["replay"],
+      commitStatus: "committed",
+      payload: { depth },
+    });
+    this.bus.emit({ type: "recovery", message: `Replay cursor @${depth} events` });
+  }
+
+  /** Operator-originated cell stamp (manual delta) for UI demos. */
+  operatorStampCell(gx: number, gz: number): void {
+    this.sharedMap.applyLocalUpdate(gx, gz, "searched", this.nowMs, this.config.operatorNodeId, 0.95, "operator");
+    this.foxMapSync.ledger.append({
+      nodeId: this.config.operatorNodeId,
+      eventType: "map_delta",
+      affectedCells: [`${gx},${gz}`],
+      relayRoute: ["operator"],
+      commitStatus: "committed",
+    });
   }
 
   async injectTargetNear(nodeId: string): Promise<void> {

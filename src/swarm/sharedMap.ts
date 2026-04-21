@@ -1,15 +1,5 @@
-import type { MapCellMeta, MapCellState, SharedMapDelta } from "./types";
-
-/** Preference when ranks tie: target > blocked > safe > searched > seen > frontier > unknown */
-const CELL_RANK: Record<MapCellState, number> = {
-  unknown: 0,
-  frontier: 1,
-  seen: 2,
-  searched: 3,
-  safe: 4,
-  blocked: 5,
-  target: 6,
-};
+import type { MapCellMeta, MapCellState, MapProofSource, SharedMapDelta } from "./types";
+import { CELL_RANK, mergeMapCellMeta } from "@/foxmq/mapMerge";
 
 function cellKey(gx: number, gz: number): string {
   return `${gx},${gz}`;
@@ -21,17 +11,9 @@ export function parseCellKey(key: string): { gx: number; gz: number } | null {
   return { gx: a, gz: b };
 }
 
-/** Deterministic merge: higher rank wins; equal rank uses higher version, then newer timestamp. */
+/** Deterministic merge — delegated to FoxMQ precedence engine. */
 export function mergeCellMeta(local: MapCellMeta | undefined, remote: MapCellMeta): MapCellMeta {
-  if (!local) return { ...remote };
-  const lr = CELL_RANK[local.state];
-  const rr = CELL_RANK[remote.state];
-  if (rr > lr) return { ...remote };
-  if (rr < lr) return { ...local };
-  if (remote.version > local.version) return { ...remote };
-  if (remote.version < local.version) return { ...local };
-  if (remote.updatedAtMs > local.updatedAtMs) return { ...remote };
-  return { ...local };
+  return mergeMapCellMeta(local, remote, remote.lastNodeId ?? "mesh");
 }
 
 export class MonotonicSharedMap {
@@ -68,17 +50,22 @@ export class MonotonicSharedMap {
     nowMs: number,
     nodeId: string,
     confidence01?: number,
+    proofSource: MapProofSource = "local_sensor",
   ): string {
     const key = cellKey(gx, gz);
     const v = this.nextVersion();
+    const prev = this.cells.get(key);
     const next: MapCellMeta = {
       state,
       version: v,
       updatedAtMs: nowMs,
       lastNodeId: nodeId,
+      firstSeenBy: prev?.firstSeenBy ?? nodeId,
+      proofSource,
+      dirtyLocal: true,
       ...(confidence01 != null ? { confidence01 } : {}),
     };
-    const merged = mergeCellMeta(this.cells.get(key), next);
+    const merged = mergeCellMeta(prev, next);
     this.cells.set(key, merged);
     return key;
   }
@@ -88,11 +75,15 @@ export class MonotonicSharedMap {
     const changed: string[] = [];
     for (const [k, remote] of Object.entries(delta.cells)) {
       const prev = this.cells.get(k);
-      const merged = mergeCellMeta(prev, remote);
-      if (!prev || merged.state !== prev.state || merged.version !== prev.version) {
+      const merged = mergeMapCellMeta(prev, remote, delta.originNodeId);
+      const peerCell: MapCellMeta = {
+        ...merged,
+        dirtyLocal: false,
+      };
+      if (!prev || peerCell.state !== prev.state || peerCell.version !== prev.version || peerCell.confidence01 !== prev.confidence01) {
         changed.push(k);
-        this.cells.set(k, merged);
-        this.seq = Math.max(this.seq, merged.version + 1);
+        this.cells.set(k, peerCell);
+        this.seq = Math.max(this.seq, peerCell.version + 1);
       }
     }
     return { changedKeys: changed };
@@ -102,7 +93,16 @@ export class MonotonicSharedMap {
     const keys = [...this.cells.keys()];
     const isExplored = (k: string) => {
       const c = this.cells.get(k);
-      return c && (c.state === "searched" || c.state === "safe" || c.state === "target" || c.state === "blocked");
+      return (
+        c &&
+        (c.state === "searched" ||
+          c.state === "safe" ||
+          c.state === "target" ||
+          c.state === "blocked" ||
+          c.state === "hazard" ||
+          c.state === "relay_critical" ||
+          c.state === "unreachable")
+      );
     };
     const neighbors = (gx: number, gz: number) => [
       cellKey(gx + 1, gz),
@@ -146,7 +146,16 @@ export class MonotonicSharedMap {
     for (const c of this.cells.values()) {
       if (c.state === "frontier") frontier += 1;
       if (c.state === "target") target += 1;
-      if (c.state === "seen" || c.state === "searched" || c.state === "safe" || c.state === "target" || c.state === "blocked")
+      if (
+        c.state === "seen" ||
+        c.state === "searched" ||
+        c.state === "safe" ||
+        c.state === "target" ||
+        c.state === "blocked" ||
+        c.state === "hazard" ||
+        c.state === "relay_critical" ||
+        c.state === "unreachable"
+      )
         explored += 1;
     }
     const denom = Math.max(1, explored + frontier);

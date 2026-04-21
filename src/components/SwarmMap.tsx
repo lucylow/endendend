@@ -11,6 +11,9 @@ const STATE_COLORS: Record<string, string> = {
   blocked: "bg-zinc-600/50",
   target: "bg-destructive/55",
   safe: "bg-primary/20",
+  hazard: "bg-orange-600/45",
+  relay_critical: "bg-violet-500/35",
+  unreachable: "bg-neutral-700/55",
 };
 
 type Props = { view: VertexSwarmView | null };

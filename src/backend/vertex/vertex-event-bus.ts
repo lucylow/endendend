@@ -10,7 +10,8 @@ export type VertexSimEvent =
   | { type: "map_updated"; coverage01: number; frontier: number }
   | { type: "target_candidate"; candidateId: string; confidence01: number }
   | { type: "target_confirmed_bus"; candidateId: string }
-  | { type: "role_handoff"; nodeId: string; toRole: string; reason: string };
+  | { type: "role_handoff"; nodeId: string; toRole: string; reason: string }
+  | { type: "foxmq_sync"; mapVersion: number; dirtyDeltas: number; syncLagMs: number; partitionBuffer: number };
 
 type Handler = (ev: VertexSimEvent) => void;
 

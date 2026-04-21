@@ -1,7 +1,9 @@
 import type { SwarmAgentNode, ConnectivitySnapshot } from "@/backend/vertex/swarm-types";
 import type { VertexConnectivityMode } from "@/backend/shared/mission-state";
+import type { MissionScenarioKind } from "@/backend/shared/mission-scenarios";
+import { scenarioMapProfile } from "@/foxmq/mockWorldFactory";
 import { MonotonicSharedMap, parseCellKey } from "./sharedMap";
-import type { ExplorationAssignment, NodeExplorationState } from "./types";
+import type { ExplorationAssignment, MapCellState, NodeExplorationState } from "./types";
 
 type Rng = () => number;
 
@@ -41,8 +43,10 @@ export class ExplorationCoordinator {
     nowMs: number;
     rng: Rng;
     scenarioMapHint: string;
+    scenario: MissionScenarioKind;
   }): NodeExplorationState[] {
-    const { map, nodes, connectivityMode, graph, operatorId, nowMs, rng, scenarioMapHint } = args;
+    const { map, nodes, connectivityMode, graph, operatorId, nowMs, rng, scenarioMapHint, scenario } = args;
+    const prof = scenarioMapProfile(scenario);
     const ex = explorers(nodes);
     const opInMesh = graph.edges.some((e) => e.a === operatorId || e.b === operatorId);
     const activeExplorers = ex.filter((n) => {
@@ -89,7 +93,13 @@ export class ExplorationCoordinator {
           n.position.x = p.gx * 4 + (rng() - 0.5) * 4 * jitter;
           n.position.z = p.gz * 4 + (rng() - 0.5) * 4 * jitter;
           const roll = rng();
-          const state = roll < 0.06 ? "blocked" : roll < 0.12 && scenarioMapHint.includes("debris") ? "blocked" : "searched";
+          const hazardBias = scenarioMapHint.includes("contamination") || scenarioMapHint.includes("plume") ? 1.35 : 1;
+          let state: MapCellState = "searched";
+          if (roll < 0.055) state = "blocked";
+          else if (roll < 0.055 + prof.hazardRate01 * 0.22 * hazardBias) state = "hazard";
+          else if (roll < 0.075 + prof.hazardRate01 * 0.22 * hazardBias) state = "unreachable";
+          else if (roll < 0.09 + prof.relayImportance01 * 0.06) state = "relay_critical";
+          else if (roll < 0.14 && scenarioMapHint.includes("debris")) state = "blocked";
           map.applyLocalUpdate(p.gx, p.gz, state, nowMs, n.nodeId);
           visited += 1;
         }
@@ -102,22 +112,4 @@ export class ExplorationCoordinator {
     return states;
   }
 
-  /** Simulate P2P map sync along mesh edges (decentralized — no cloud). */
-  gossipMapDeltas(map: MonotonicSharedMap, graph: ConnectivitySnapshot, nowMs: number, rng: Rng): number {
-    let merges = 0;
-    for (const e of graph.edges) {
-      if (e.quality01 < 0.12 || rng() > 0.55 + e.quality01 * 0.35) continue;
-      const snap = map.snapshotCells();
-      const keys = Object.keys(snap).filter((k) => {
-        const c = map.getCell(k);
-        return c && (c.state === "searched" || c.state === "target" || c.state === "frontier" || c.state === "blocked");
-      });
-      const sample = keys.slice(0, 6 + Math.floor(rng() * 6));
-      if (sample.length < 2) continue;
-      const delta = map.exportDelta(sample, e.a, nowMs);
-      const { changedKeys } = map.mergeDelta({ ...delta, originNodeId: e.b });
-      merges += changedKeys.length;
-    }
-    return merges;
-  }
 }

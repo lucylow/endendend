@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Play, Pause, StepForward, RotateCcw, Radio, CloudOff, Database, Zap, UserX, Shuffle } from "lucide-react";
 import { useVertexSwarm } from "@/hooks/useVertexSwarm";
-import { SwarmMap } from "@/components/SwarmMap";
+import { SharedWorldMapPanel } from "@/components/SharedWorldMapPanel";
 import { SwarmOverview } from "@/components/SwarmOverview";
 import { SwarmRolePanel } from "@/components/SwarmRolePanel";
 import { SwarmEventFeed } from "@/components/SwarmEventFeed";
@@ -60,6 +60,10 @@ export function VertexSwarmDashboard() {
     meshInjectLatency,
     meshTogglePartition,
     meshResetStress,
+    snapshotFoxMap,
+    replayFoxMapHistory,
+    stampFoxMapCell,
+    recoverFoxMapNode,
   } = useVertexSwarm();
   const { simSpeed, setSimSpeed } = useSimulationMode();
   const blackout = useBlackoutMode();
@@ -235,8 +239,15 @@ export function VertexSwarmDashboard() {
         <SwarmTaskPanel />
       </div>
 
+      <SharedWorldMapPanel
+        view={view}
+        onSnapshot={() => snapshotFoxMap()}
+        onReplay={() => replayFoxMapHistory()}
+        onStamp={() => stampFoxMapCell(0, 0)}
+        onRecoverSample={() => void recoverFoxMapNode("agent-relay-b")}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SwarmMap view={view} />
         <SwarmRolePanel view={view} />
       </div>
 

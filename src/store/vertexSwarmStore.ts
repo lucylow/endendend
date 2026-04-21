@@ -41,6 +41,10 @@ export type VertexSwarmStoreState = {
   meshInjectLatency: (deltaMs: number) => void;
   meshTogglePartition: (active: boolean) => void;
   meshResetStress: () => void;
+  snapshotFoxMap: () => void;
+  replayFoxMapHistory: () => void;
+  stampFoxMapCell: (gx: number, gz: number) => void;
+  recoverFoxMapNode: (nodeId: string) => Promise<void>;
 };
 
 const MAX_LOG = 200;
@@ -217,6 +221,27 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
   meshResetStress() {
     get().simulator?.meshResetStress();
     void get().stepOnce();
+  },
+
+  snapshotFoxMap() {
+    get().simulator?.snapshotFoxMapLedger();
+    void get().stepOnce();
+  },
+
+  replayFoxMapHistory() {
+    get().simulator?.replayFoxmqLedger();
+    void get().stepOnce();
+  },
+
+  stampFoxMapCell(gx: number, gz: number) {
+    get().simulator?.operatorStampCell(gx, gz);
+    void get().stepOnce();
+  },
+
+  async recoverFoxMapNode(nodeId: string) {
+    const sim = get().simulator ?? (get().initSimulator(), get().simulator);
+    if (sim) await sim.forceNodeRecovery(nodeId);
+    await get().stepOnce();
   },
 }));
 

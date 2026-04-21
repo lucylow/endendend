@@ -1,7 +1,19 @@
 import type { MissionNodeRole } from "@/backend/shared/mission-state";
 
-/** Monotonic map cell states — ordinal merge uses `CELL_RANK`. */
-export type MapCellState = "unknown" | "frontier" | "seen" | "searched" | "blocked" | "target" | "safe";
+/** Monotonic map cell states — merge precedence in `@/foxmq/mapMerge`. */
+export type MapCellState =
+  | "unknown"
+  | "frontier"
+  | "seen"
+  | "searched"
+  | "blocked"
+  | "target"
+  | "safe"
+  | "hazard"
+  | "relay_critical"
+  | "unreachable";
+
+export type MapProofSource = "local_sensor" | "peer_mesh" | "peer_confirm" | "replay" | "recovery" | "operator";
 
 export type MapCellMeta = {
   state: MapCellState;
@@ -11,6 +23,12 @@ export type MapCellMeta = {
   lastNodeId?: string;
   /** Highest sensor confidence observed for this cell. */
   confidence01?: number;
+  firstSeenBy?: string;
+  proofSource?: MapProofSource;
+  /** Local node has unpublished mesh commits (FoxMQ-style). */
+  dirtyLocal?: boolean;
+  /** Short audit trail of merge origins (cap in merge engine). */
+  mergeLineage?: string[];
 };
 
 export type MapCoord = { gx: number; gz: number };

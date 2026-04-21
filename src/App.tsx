@@ -47,6 +47,11 @@ import PredatorEvasionDemo from "@/pages/scenarios/PredatorEvasionDemo";
 import RandomFailureDemo from "@/pages/scenarios/RandomFailureDemo";
 import WarehouseRestockingDemo from "@/pages/scenarios/WarehouseRestockingDemo";
 import { SAR_SCENARIOS } from "@/lib/scenarios/registry";
+import { Track2WebotsLayout } from "@/components/Track2WebotsLayout";
+import Track2WebotsHome from "@/pages/Track2WebotsHome";
+import FallenComradeViz from "@/scenarios/FallenComradeViz";
+import BlindHandoffViz from "@/scenarios/BlindHandoffViz";
+import DaisyChainViz from "@/scenarios/DaisyChainViz";
 
 const defaultSarSlug = SAR_SCENARIOS[0]?.slug ?? "dynamic-relay";
 const SCENARIO_FULL_PAGE_SLUGS = new Set([
@@ -102,6 +107,12 @@ function App() {
               <Route path="/scenarios/random-failure" element={<RandomFailureDemo />} />
               <Route path="/scenarios/warehouse-restock" element={<WarehouseRestockingDemo />} />
               <Route path="/scenarios/warehouse-restocking" element={<WarehouseRestockingDemo />} />
+              <Route element={<Track2WebotsLayout />}>
+                <Route path="/track2-webots" element={<Track2WebotsHome />} />
+                <Route path="/scenarios/fallen" element={<FallenComradeViz />} />
+                <Route path="/scenarios/handoff" element={<BlindHandoffViz />} />
+                <Route path="/scenarios/daisy" element={<DaisyChainViz />} />
+              </Route>
               {SAR_SCENARIOS.filter((s) => !SCENARIO_FULL_PAGE_SLUGS.has(s.slug)).map((s) => (
                 <Route
                   key={s.slug}

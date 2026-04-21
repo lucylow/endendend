@@ -87,6 +87,15 @@ export function vertexSimEventToRuntime(ev: VertexSimEvent, nowMs: number): Swar
         detail: `${ev.nodeId} → ${ev.toRole} (${ev.reason})`,
         raw: ev,
       };
+    case "foxmq_sync":
+      return {
+        id: nextId(),
+        atMs: nowMs,
+        kind: "map",
+        label: "foxmq_collective_sync",
+        detail: `v${ev.mapVersion} dirty=${ev.dirtyDeltas} lag=${ev.syncLagMs}ms buf=${ev.partitionBuffer}`,
+        raw: ev,
+      };
     default:
       return null;
   }

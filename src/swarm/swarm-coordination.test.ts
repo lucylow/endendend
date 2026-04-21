@@ -11,6 +11,40 @@ import { createBaselineSwarmNodeList } from "@/backend/vertex/agent-profiles";
 import { effectiveOperatorPathQuality } from "@/swarm/networkModel";
 import { P2PMessageBus } from "@/swarm/messageBus";
 import { normalizeSwarmView } from "@/swarm/stateNormalizer";
+import { buildMapSnapshot } from "@/foxmq/mapSnapshot";
+import type { FoxMqMapPublicState } from "@/foxmq/mapSyncEngine";
+import { scenarioMapProfile } from "@/foxmq/mockWorldFactory";
+
+function stubFoxmqMap(): VertexSwarmView["foxmqMap"] {
+  const snap = buildMapSnapshot({
+    mapId: "fleet_world",
+    mapVersion: 0,
+    timestamp: 1,
+    cells: {},
+  });
+  const pub: FoxMqMapPublicState = {
+    mapVersion: 0,
+    lastSnapshot: snap,
+    dirtyDeltaCount: 0,
+    syncLagMs: 0,
+    causalSeq: 0,
+    partitionBufferSize: 0,
+    recoveryProgress01: 1,
+    collectiveMemoryHealth01: 0.5,
+    mergeConflictsResolved: 0,
+    meshMergesThisTick: 0,
+    runtimeMode: "mock_fallback",
+    liveFoxAvailable: false,
+    offlineContributionsPreserved: {},
+    ledgerEventCount: 0,
+    duplicateDeltasDropped: 0,
+  };
+  return {
+    public: pub,
+    ledgerTail: [],
+    scenarioProfile: scenarioMapProfile("tunnel"),
+  };
+}
 
 describe("swarm coordination layer", () => {
   it("monotonic map merge never regresses cell rank", () => {
@@ -143,6 +177,7 @@ describe("swarm coordination layer", () => {
       exploration: [],
       discovery: [],
       roleHandoffs: [],
+      foxmqMap: stubFoxmqMap(),
     };
     const n = normalizeSwarmView(v as unknown as VertexSwarmView);
     expect(n?.peers.length).toBe(5);
