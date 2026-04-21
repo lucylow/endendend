@@ -3,9 +3,11 @@ import { ROVER_IDS, type Bounds, type FallenTrack2Frame } from "./types";
 import { reallocateDeadSector } from "./reallocation";
 
 const GRID = 100;
-const STOP_HB_B = 30;
-const STOP_HB_C = 120;
+const COMM_LOSS_B = 27;
+const COMM_LOSS_C = 117;
 const HB_TIMEOUT = 3;
+
+type VictimRow = { id: string; x: number; z: number; severity: number; discovered: boolean };
 
 type InternalRover = {
   id: string;
@@ -15,6 +17,7 @@ type InternalRover = {
   sector: { bounds: Bounds };
   heartbeat: number;
   exploredCells: Set<string>;
+  assignedVictims: string[];
   targetX?: number;
   targetZ?: number;
 };
@@ -42,18 +45,21 @@ function mulberry32(seed: number) {
 }
 
 function placeObstacles(grid: number[][], rng: () => number) {
+  for (let x = 38; x < 62; x++) {
+    for (let z = 45; z < 55; z++) {
+      grid[z]![x] = 1;
+    }
+  }
   const stamp = (cx: number, cz: number, w: number, h: number) => {
     const x0 = Math.max(0, cx - Math.floor(w / 2));
     const z0 = Math.max(0, cz - Math.floor(h / 2));
     for (let z = z0; z < Math.min(GRID, z0 + h); z++) {
       for (let x = x0; x < Math.min(GRID, x0 + w); x++) {
-        grid[z]![x] = 1;
+        if (grid[z]![x] === 0) grid[z]![x] = 1;
       }
     }
   };
-  stamp(Math.floor(GRID / 2), Math.floor(GRID / 2), 14, 6);
-  stamp(Math.floor(GRID / 2) + 8, Math.floor(GRID / 2) - 5, 8, 10);
-  stamp(Math.floor(GRID / 3), Math.floor((2 * GRID) / 3), 10, 8);
+  stamp(Math.floor(GRID / 3), Math.floor((2 * GRID) / 3), 8, 6);
   for (let k = 0; k < 3; k++) {
     stamp(
       10 + Math.floor(rng() * (GRID - 20)),
@@ -64,13 +70,34 @@ function placeObstacles(grid: number[][], rng: () => number) {
   }
 }
 
-function toPublicRover(r: InternalRover): RoverState {
+function obstacleListFromGrid(grid: number[][]): Array<{ x: number; z: number; type: string }> {
+  const out: Array<{ x: number; z: number; type: string }> = [];
+  for (let z = 0; z < GRID; z++) {
+    for (let x = 0; x < GRID; x++) {
+      if (grid[z]![x]) {
+        const inCorridor = x >= 38 && x < 62 && z >= 45 && z < 55;
+        out.push({ x, z, type: inCorridor ? "collapse" : "rubble" });
+      }
+    }
+  }
+  return out;
+}
+
+function toPublicRover(r: InternalRover, simT: number): RoverState {
+  const telTask = r.state === "dead" ? "offline" : r.state === "reallocating" ? "reallocating" : "patrol";
   return {
     id: r.id,
     position: [...r.position] as [number, number, number],
     battery: r.battery,
     state: r.state,
     sector: { bounds: [...r.sector.bounds] as [number, number, number, number] },
+    telemetry: {
+      speed_mps: 1.2,
+      heartbeat_age_s: Math.max(0, simT - r.heartbeat),
+      explored_unique_cells: r.exploredCells.size,
+      task: telTask,
+      assigned_victims: [...r.assignedVictims],
+    },
   };
 }
 
@@ -80,6 +107,8 @@ export class FallenComradeMockEngine {
   grid: number[][];
   initialSectorBounds: Record<string, Bounds>;
   rovers: InternalRover[];
+  victims: VictimRow[];
+  obstacles: Array<{ x: number; z: number; type: string }>;
   reallocated = false;
   private rng: () => number;
   private bDead = false;
@@ -91,6 +120,8 @@ export class FallenComradeMockEngine {
     this.rng = mulberry32(seed);
     this.grid = Array.from({ length: GRID }, () => Array<number>(GRID).fill(0));
     placeObstacles(this.grid, this.rng);
+    const obsAll = obstacleListFromGrid(this.grid);
+    this.obstacles = obsAll.length > 600 ? obsAll.slice(0, 600) : obsAll;
     this.initialSectorBounds = initialSectors();
     this.rovers = ROVER_IDS.map((id) => {
       const b = this.initialSectorBounds[id]!;
@@ -102,8 +133,34 @@ export class FallenComradeMockEngine {
         sector: { bounds: [...b] as Bounds },
         heartbeat: 0,
         exploredCells: new Set<string>(),
+        assignedVictims: [],
       };
     });
+    this.victims = [];
+    const free: [number, number][] = [];
+    for (let z = 0; z < GRID; z++) {
+      for (let x = 0; x < GRID; x++) {
+        if (this.grid[z]![x] === 0) free.push([x, z]);
+      }
+    }
+    for (let i = free.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      const tmp = free[i]!;
+      free[i] = free[j]!;
+      free[j] = tmp;
+    }
+    const count = Math.min(8 + Math.floor(this.rng() * 5), free.length);
+    for (let i = 0; i < count; i++) {
+      const [x, z] = free[i]!;
+      const row: VictimRow = {
+        id: `victim_${i + 1}`,
+        x: x + 0.5,
+        z: z + 0.5,
+        severity: 1 + Math.floor(this.rng() * 4),
+        discovered: false,
+      };
+      this.victims.push(row);
+    }
   }
 
   private boundsMap(): Record<string, Bounds> {
@@ -153,8 +210,28 @@ export class FallenComradeMockEngine {
         const cx = gx + ox;
         const cz = gz + oz;
         if (cx >= 0 && cx < GRID && cz >= 0 && cz < GRID) {
-          r.exploredCells.add(`${cx},${cz}`);
-          this.foxCells.add(`${cx},${cz}`);
+          const key = `${cx},${cz}`;
+          if (this.foxCells.has(key)) continue;
+          this.foxCells.add(key);
+          r.exploredCells.add(key);
+        }
+      }
+    }
+  }
+
+  private detectVictims() {
+    for (const v of this.victims) {
+      if (v.discovered) continue;
+      const vx = v.x;
+      const vz = v.z;
+      for (const r of this.rovers) {
+        if (r.state === "dead") continue;
+        const [px, , pz] = r.position;
+        if ((px - vx) ** 2 + (pz - vz) ** 2 < 2.25) {
+          v.discovered = true;
+          const vid = v.id;
+          if (vid && !r.assignedVictims.includes(vid)) r.assignedVictims.push(vid);
+          break;
         }
       }
     }
@@ -167,7 +244,7 @@ export class FallenComradeMockEngine {
     for (const r of this.rovers) {
       if (r.state === "dead") continue;
       const stopHb =
-        (r.id === "RoverB" && this.t >= STOP_HB_B) || (r.id === "RoverC" && this.t >= STOP_HB_C);
+        (r.id === "RoverB" && this.t >= COMM_LOSS_B) || (r.id === "RoverC" && this.t >= COMM_LOSS_C);
       if (stopHb) {
         if (r.id === "RoverB" && !this.bDead) this.maybeKill(r);
         if (r.id === "RoverC" && !this.cDead) this.maybeKill(r);
@@ -202,6 +279,8 @@ export class FallenComradeMockEngine {
       this.markExplored(r);
     }
 
+    this.detectVictims();
+
     const rb = this.rovers.find((x) => x.id === "RoverB");
     if (rb && !this.bDead && rb.state === "dead") {
       this.bDead = true;
@@ -218,7 +297,15 @@ export class FallenComradeMockEngine {
       time: this.t,
       global_map: this.renderGlobalMap(),
       reallocated: this.reallocated,
-      rovers: this.rovers.map(toPublicRover),
+      rovers: this.rovers.map((r) => toPublicRover(r, this.t)),
+      victims: [...this.victims],
+      obstacles: this.obstacles,
+      events: [],
+      scenario_meta: {
+        rover_b_comm_loss_start_s: COMM_LOSS_B,
+        heartbeat_timeout_s: HB_TIMEOUT,
+        expected_rover_b_dead_s: COMM_LOSS_B + HB_TIMEOUT,
+      },
     };
   }
 

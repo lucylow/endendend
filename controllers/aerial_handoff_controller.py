@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """
-Webots controller: steps MockDataEngine on the simulator clock and mirrors state to ws://127.0.0.1:8765.
+Webots clock driver for the Blind Handoff mock hub (same contract as `blind_handoff_emitter`).
 
-RoverB stops heartbeats at T+27s and is declared dead at T+30s (3s timeout), then sectors reallocate.
-
-Attach to the `fallen_comrade_emitter` robot in `worlds/fallen_comrade_track2.wbt`.
-Requires: pip install -r requirements-mockdata.txt
+Steps `WsHandoffHub` on the simulator timestep and broadcasts Track 2 JSON on ws://127.0.0.1:8765.
 """
 
 from __future__ import annotations
@@ -16,18 +13,18 @@ from pathlib import Path
 
 from controller import Robot
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[1]
 _SRC = _ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from mockdata.ws_runner import WsFallenComradeHub  # noqa: E402
+from mockdata.ws_handoff_runner import WsHandoffHub  # noqa: E402
 
 
 def main() -> None:
     robot = Robot()
     timestep_ms = int(robot.getBasicTimeStep())
-    hub = WsFallenComradeHub()
+    hub = WsHandoffHub()
     try:
         hub.start_ws("127.0.0.1", 8765, external_step=True)
     except Exception:

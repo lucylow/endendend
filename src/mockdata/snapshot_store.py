@@ -14,7 +14,12 @@ class SnapshotStore:
     def __init__(self) -> None:
         self.last_snapshot: Optional[Dict[str, Any]] = None
 
+    def save(self, frame: Dict[str, Any]) -> None:
+        """Used by `MockDataEngine` (Fallen Comrade) each tick."""
+        self.last_snapshot = frame
+
     def build(self, engine: "BlindHandoffEngine") -> Dict[str, Any]:
+        """Build a browser/Webots frame from the blind handoff engine."""
         snap = handoff_engine_to_track2_frame(engine)
         self.last_snapshot = snap
         return snap

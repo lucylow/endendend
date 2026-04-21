@@ -29,6 +29,10 @@ export function useFallenComradeSimulation() {
           global_map: f.global_map,
           reallocated: f.reallocated,
           rovers: f.rovers,
+          victims: f.victims,
+          obstacles: f.obstacles,
+          events: f.events,
+          scenario_meta: f.scenario_meta,
         });
       }
       raf = requestAnimationFrame(tick);

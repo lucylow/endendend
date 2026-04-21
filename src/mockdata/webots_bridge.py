@@ -29,13 +29,16 @@ def engine_to_track2_frame(engine: "MockDataEngine") -> Dict[str, Any]:
             }
         )
     events = engine.protocol_log.events[-48:]
+    obstacles = engine.obstacles
+    if len(obstacles) > 800:
+        obstacles = list(obstacles[:800])
     return {
         "time": round(engine.t, 3),
         "global_map": engine.global_map,
         "reallocated": engine.reallocated_flag,
         "rovers": rovers,
         "victims": engine.victims,
-        "obstacles": engine.obstacles,
+        "obstacles": obstacles,
         "events": events,
         "scenario_meta": {
             "rover_b_comm_loss_start_s": engine.cfg.rover_b_comm_loss_start_s,

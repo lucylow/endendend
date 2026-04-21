@@ -7,6 +7,16 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
+def load_protocol_events(path: Path) -> List[Dict[str, Any]]:
+    if not path.exists():
+        return []
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    return raw if isinstance(raw, list) else []
+
+
 def write_replay_file(events: List[Dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(events, indent=2) + "\n", encoding="utf-8")

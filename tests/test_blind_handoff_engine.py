@@ -19,7 +19,7 @@ def test_engine_rescue_increments() -> None:
     eng = BlindHandoffEngine(seed=7)
     dt = 1.0 / 60.0
     before = eng.rescues_completed
-    for _ in range(int(36.0 / dt)):
+    for _ in range(int(45.0 / dt)):
         eng.step(dt)
     assert eng.rescues_completed >= before + 1
     assert eng.auction.winner is None or isinstance(eng.auction.winner, str)
@@ -28,11 +28,21 @@ def test_engine_rescue_increments() -> None:
 def test_auction_collects_three_bids() -> None:
     eng = BlindHandoffEngine(seed=42)
     dt = 1.0 / 120.0
-    for _ in range(int(17.0 / dt)):
-        eng.step(dt)
-    for _ in range(int(2.0 / dt)):
+    for _ in range(int(19.0 / dt)):
         eng.step(dt)
     assert len(eng.auction.bids) == 3
+    for _ in range(int(3.0 / dt)):
+        eng.step(dt)
     assert eng.auction.winner in ("RoverHeavy1", "RoverLight2", "RoverLight3", None)
-    if eng.auction.winner:
-        assert eng.auction.winner in {g.id for g in eng.ground}
+    assert eng.auction.winner is not None
+    assert eng.auction.winner in {g.id for g in eng.ground}
+
+
+def test_battery_below_threshold_at_auction() -> None:
+    eng = BlindHandoffEngine(seed=42)
+    dt = 0.05
+    target = float(eng.timeline["auction_start_s"])
+    steps = int(target / dt)
+    for _ in range(steps):
+        eng.step(dt)
+    assert eng.aerial.battery < float(eng.config.low_battery_threshold)

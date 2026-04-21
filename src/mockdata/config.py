@@ -1,4 +1,4 @@
-"""Single source of truth for Blind Handoff mock tuning (deterministic + Webots-friendly)."""
+"""Configuration dataclasses for Track 2 mock engines."""
 
 from __future__ import annotations
 
@@ -6,7 +6,20 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class FallenComradeConfig:
+    """Heartbeat / comm-loss timeline for the Fallen Comrade sector mock."""
+
+    seed: int = 42
+    rover_b_comm_loss_start_s: float = 27.0
+    rover_c_comm_loss_start_s: float = 117.0
+    heartbeat_timeout_s: float = 3.0
+    speed_mps: float = 1.2
+
+
+@dataclass(frozen=True)
 class BlindHandoffConfig:
+    """Tunable Blind Handoff air/ground field + telemetry cadence."""
+
     seed: int = 42
     world_size_m: int = 200
     half_extent_m: int = 100

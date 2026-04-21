@@ -5,6 +5,19 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 
+def validate_world_bundle(bundle: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    errs: List[str] = []
+    if not isinstance(bundle.get("grid"), list) or not bundle["grid"]:
+        errs.append("grid must be a non-empty list")
+    if not isinstance(bundle.get("sectors"), dict) or not bundle["sectors"]:
+        errs.append("sectors must be a non-empty object")
+    if not isinstance(bundle.get("victims"), list):
+        errs.append("victims must be a list")
+    if "seed" not in bundle:
+        errs.append("missing seed")
+    return (len(errs) == 0, errs)
+
+
 def _is_bounds(b: Any) -> bool:
     return isinstance(b, list) and len(b) == 4 and all(isinstance(x, (int, float)) for x in b)
 

@@ -7,6 +7,7 @@ import { FieldGridLines, SectorGrid } from "./SectorGrid";
 import { GlobalMapOverlay } from "./GlobalMapOverlay";
 import { RoverMesh } from "./RoverMesh";
 import { ReallocAnim } from "./ReallocAnim";
+import { TelemetryPanel } from "./TelemetryPanel";
 import { useFallenComradeSimulation } from "./useFallenComradeSimulation";
 
 function Scene() {
@@ -94,6 +95,7 @@ export function FallenComradeScenario() {
       </div>
       <FailureOverlay />
       <ReallocAnim />
+      <TelemetryPanel />
     </div>
   );
 }

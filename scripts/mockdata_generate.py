@@ -12,8 +12,8 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from mockdata.handoff_engine import BlindHandoffEngine  # noqa: E402
-from mockdata.replay_engine import load_protocol_events  # noqa: E402
-from mockdata.validators import validate_world_bundle  # noqa: E402
+from mockdata.replay_engine import blind_handoff_replay_path, load_protocol_events, write_replay_file  # noqa: E402
+from mockdata.validators import validate_blind_handoff_world, validate_world_bundle  # noqa: E402
 from mockdata.worldgen import WorldGenerator  # noqa: E402
 from mockdata.worldgen_airground import AirGroundWorld  # noqa: E402
 
@@ -22,6 +22,9 @@ def _write_blind_handoff_assets() -> None:
     handoff_public = ROOT / "public" / "data" / "handoff"
     handoff_public.mkdir(parents=True, exist_ok=True)
     world = AirGroundWorld().generate(42)
+    ok_bh, errs_bh = validate_blind_handoff_world(world)
+    if not ok_bh:
+        raise SystemExit("validate_blind_handoff_world failed: " + "; ".join(errs_bh))
     (handoff_public / "world_airground.json").write_text(json.dumps(world, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {(handoff_public / 'world_airground.json').relative_to(ROOT)}")
     victims_proc = {"bounds": world["bounds"], "victims": world["victims"]}
@@ -30,7 +33,7 @@ def _write_blind_handoff_assets() -> None:
 
     eng = BlindHandoffEngine(seed=42, world=world)
     dt = 1.0 / 60.0
-    for _ in range(int(42.0 / dt)):
+    for _ in range(int(48.0 / dt)):
         eng.step(dt)
     replay = eng.replay_log()
     (handoff_public / "auction_replays.json").write_text(json.dumps(replay, indent=2) + "\n", encoding="utf-8")
@@ -40,6 +43,18 @@ def _write_blind_handoff_assets() -> None:
     worlds_data.mkdir(parents=True, exist_ok=True)
     (worlds_data / "victims_proc.json").write_text(json.dumps(victims_proc, indent=2) + "\n", encoding="utf-8")
     (worlds_data / "auction_replays.json").write_text(json.dumps(replay, indent=2) + "\n", encoding="utf-8")
+    (worlds_data / "blind_handoff_world.json").write_text(json.dumps(world, indent=2) + "\n", encoding="utf-8")
+    (worlds_data / "blind_handoff_victims.json").write_text(json.dumps(victims_proc, indent=2) + "\n", encoding="utf-8")
+    write_replay_file(replay, blind_handoff_replay_path(ROOT))
+    wbt_src = ROOT / "worlds" / "blind_handoff_track2.wbt"
+    wbt_dst = worlds_data / "blind_handoff.wbt"
+    if wbt_src.exists():
+        wbt_dst.write_bytes(wbt_src.read_bytes())
+    print(f"Wrote {(worlds_data / 'blind_handoff_world.json').relative_to(ROOT)}")
+    print(f"Wrote {(worlds_data / 'blind_handoff_victims.json').relative_to(ROOT)}")
+    print(f"Wrote {(blind_handoff_replay_path(ROOT)).relative_to(ROOT)}")
+    if wbt_dst.exists():
+        print(f"Wrote {wbt_dst.relative_to(ROOT)}")
     print(f"Wrote {(worlds_data / 'victims_proc.json').relative_to(ROOT)} (mirror)")
 
 
