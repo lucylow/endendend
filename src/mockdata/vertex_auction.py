@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from mockdata import handoff_protocol
-from mockdata.rover_paths import xz_distance
+from mockdata.auction_scoring import calculate_bid_score
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +49,7 @@ class VertexAuction:
 
     def calculate_bid_score(self, rover: RoverBidInput) -> Tuple[float, float]:
         assert self.task_coords is not None
-        dist = max(0.5, xz_distance(rover.position, self.task_coords))
-        dist_score = 1.0 / dist
-        battery_score = min(max(rover.battery, 0.0) / 100.0, 1.0)
-        cap = rover.capacity.lower()
-        capacity_score = 2.0 if cap == "heavy" else 1.0
-        score = dist_score * battery_score * capacity_score
-        return score, dist
+        return calculate_bid_score(rover.position, rover.battery, rover.capacity, self.task_coords)
 
     def receive_bid(self, rover: RoverBidInput) -> None:
         if self.task_coords is None:

@@ -1,4 +1,4 @@
-"""Load recorded realloc protocol events (JSON lines / array)."""
+"""Persist deterministic replay slices to disk (hackathon / video tooling)."""
 
 from __future__ import annotations
 
@@ -7,14 +7,10 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-def load_protocol_events(path: Path) -> List[Dict[str, Any]]:
-    if not path.exists():
-        return []
-    raw = path.read_text(encoding="utf-8")
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
-    if isinstance(data, list):
-        return [x for x in data if isinstance(x, dict)]
-    return []
+def write_replay_file(events: List[Dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(events, indent=2) + "\n", encoding="utf-8")
+
+
+def blind_handoff_replay_path(root: Path) -> Path:
+    return root / "data" / "worlds" / "blind_handoff_replays.json"

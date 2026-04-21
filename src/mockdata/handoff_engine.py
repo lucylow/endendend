@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from mockdata.agent_states import AerialDroneState, GroundRoverState
 from mockdata.battery_sim import DEFAULT_PROFILE
+from mockdata.config import BlindHandoffConfig
+from mockdata.handoff_event_bus import HandoffEventBus
 from mockdata.handoff_protocol import rescue_complete
 from mockdata.rover_paths import lawnmower_segment_progress, step_toward, xz_distance
 from mockdata.vertex_auction import RoverBidInput, VertexAuction
@@ -19,17 +21,27 @@ Vec3 = Tuple[float, float, float]
 class BlindHandoffEngine:
     """Drives the judge timeline on a repeating cycle (multi-victim handoffs)."""
 
-    def __init__(self, seed: int = 42, world: Optional[Dict[str, Any]] = None) -> None:
-        self.seed = seed
-        self.world = world or AirGroundWorld().generate(seed)
+    def __init__(
+        self,
+        seed: int = 42,
+        world: Optional[Dict[str, Any]] = None,
+        *,
+        config: Optional[BlindHandoffConfig] = None,
+    ) -> None:
+        self.config = config or BlindHandoffConfig()
+        self.seed = int(self.config.seed if config is not None else seed)
+        self.world = world or AirGroundWorld().generate(self.seed)
+        if world is not None:
+            self.seed = int(seed)
         self.timeline: Dict[str, float] = {**self.world.get("timeline", {})}
         for k, v in {
             "detect_s": 15.0,
             "auction_start_s": 16.0,
-            "winner_s": 18.0,
-            "rtb_done_s": 20.0,
+            "bids_s": 18.0,
+            "winner_s": 20.0,
+            "rtb_done_s": 27.0,
             "rescue_arrival_s": 30.0,
-            "cycle_reset_s": 35.0,
+            "cycle_reset_s": 38.0,
         }.items():
             self.timeline.setdefault(k, v)
 
@@ -69,6 +81,8 @@ class BlindHandoffEngine:
         self.rescues_completed = 0
         self.auction = VertexAuction()
         self._auction_open = False
+        self._bids_submitted = False
+        self.events = HandoffEventBus()
         self._replay_events: List[Dict[str, Any]] = []
         self._rescued_this_cycle = False
 
@@ -84,6 +98,7 @@ class BlindHandoffEngine:
         self._cycle_t0 = self.t
         self.auction.reset()
         self._auction_open = False
+        self._bids_submitted = False
         self._rescued_this_cycle = False
         self.aerial.victim_detected = None
         self.aerial.mode = "sweep"
@@ -111,18 +126,27 @@ class BlindHandoffEngine:
         tl = self.timeline
         victim_rec = self._current_victim()
 
-        # --- Battery (piecewise, judge-sync) ---
+        # --- Battery (piecewise, judge-sync: <20% by auction broadcast) ---
         prof = DEFAULT_PROFILE
-        if lt < tl["detect_s"]:
-            self.aerial.battery = max(18.0, 100.0 - 1.15 * lt)
+        thr = float(self.config.low_battery_threshold)
+        t_det = float(tl["detect_s"])
+        t_au = float(tl["auction_start_s"])
+        if lt < t_det:
+            self.aerial.battery = max(thr + 5.0, 100.0 - (100.0 - (thr + 5.0)) / max(t_det, 1e-6) * lt)
             for g in self.ground:
                 g.battery = max(55.0, 100.0 - prof.ground_idle_pct_s * lt * 0.2)
-        elif lt < tl["auction_start_s"]:
-            self.aerial.battery = max(18.0, 100.0 - 1.15 * lt)
+        elif lt < t_au:
+            span = max(t_au - t_det, 1e-6)
+            u = (lt - t_det) / span
+            hi = thr + 5.0
+            lo = max(8.0, thr - 3.0)
+            self.aerial.battery = hi - (hi - lo) * u
+        elif lt < tl["bids_s"]:
+            self.aerial.battery = max(8.0, self.aerial.battery - prof.aerial_post_detect_pct_s * dt * 0.35)
         elif lt < tl["winner_s"]:
-            self.aerial.battery = max(12.0, 18.0 - prof.aerial_post_detect_pct_s * (lt - tl["auction_start_s"]))
+            self.aerial.battery = max(8.0, self.aerial.battery - prof.aerial_post_detect_pct_s * dt * 0.45)
         else:
-            self.aerial.battery = max(8.0, self.aerial.battery - prof.aerial_sweep_pct_s * dt * 0.5)
+            self.aerial.battery = max(6.0, self.aerial.battery - prof.aerial_sweep_pct_s * dt * 0.35)
 
         # --- Victim detection (FOV while sweeping) ---
         if victim_rec and lt < tl["detect_s"]:
@@ -150,9 +174,17 @@ class BlindHandoffEngine:
             and self.aerial.victim_detected
         ):
             coords = tuple(self.aerial.victim_detected["coords"])  # type: ignore[arg-type]
-            self.auction.broadcast_task(coords)
+            ev = self.auction.broadcast_task(coords)
             self._auction_open = True
             self._append_replay({"event": "AUCTION_START", "coords": list(coords)})
+            self.events.emit({"type": "AUCTION_BROADCAST", "payload": ev})
+
+        if (
+            self._auction_open
+            and not self._bids_submitted
+            and lt >= tl["bids_s"]
+            and self.auction.task_coords is not None
+        ):
             inputs = [
                 RoverBidInput(
                     g.id,
@@ -163,6 +195,14 @@ class BlindHandoffEngine:
                 for g in self.ground
             ]
             self.auction.collect_from_rovers(inputs)
+            self._bids_submitted = True
+            self._append_replay(
+                {
+                    "event": "BIDS_SUBMITTED",
+                    "bids": {k: dict(v) for k, v in self.auction.bids.items()},
+                }
+            )
+            self.events.emit({"type": "BIDS_SUBMITTED", "count": len(self.auction.bids)})
 
         if self._auction_open and self.auction.winner is None and lt >= tl["winner_s"]:
             win = self.auction.select_winner()
@@ -171,6 +211,7 @@ class BlindHandoffEngine:
                     g.current_task = "rescue"
             self.aerial.mode = "rtb"
             self._append_replay({"event": "AUCTION_WINNER", "winner": win})
+            self.events.emit({"type": "HANDOFF_WINNER", "winner": win})
 
         # --- Motion: sweep / RTB / rover rescue ---
         vic_coords: Optional[Vec3] = None

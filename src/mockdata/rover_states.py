@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
+
+from mockdata.exploration import try_mark_explored
+from mockdata.utils import cells_from_footprint
 
 from mockdata.sectorizer import Bounds, sector_center
 
@@ -21,6 +24,8 @@ class RoverState:
     heartbeat: float = 0.0  # last simulation time (seconds) with a successful heartbeat
     explored_cells: Set[Tuple[int, int]] = field(default_factory=set)
     speed: float = 1.2
+    task: str = "patrol"
+    assigned_victims: List[str] = field(default_factory=list)
     _target: Vec3 | None = None
 
     def __post_init__(self) -> None:
@@ -47,8 +52,15 @@ class RoverState:
         z = zmin + 2 + v * max(0.1, (zmax - zmin - 4))
         self._target = (x, 0.5, z)
 
-    def update_exploring(self, dt: float, bounds: Bounds, t_clock: float) -> None:
+    def update_exploring(
+        self,
+        dt: float,
+        bounds: Bounds,
+        t_clock: float,
+        grid_coverage: Optional[Set[Tuple[int, int]]] = None,
+    ) -> List[Tuple[int, int]]:
         self.touch_heartbeat(t_clock)
+        self.task = "patrol"
         self.battery = max(0.0, self.battery - 0.02 * dt * (0.4 + 0.1 * math.sin(t_clock)))
         if self._target is None:
             self.set_target_near(bounds, t_clock + hash(self.id) % 997 / 997.0)
@@ -60,12 +72,19 @@ class RoverState:
         self.position = (px + dx / dist * step, py, pz + dz / dist * step)
         if dist < 0.75:
             self._target = None
-        # explored footprint ~1m
         gx = int(round(self.position[0] - 0.5))
         gz = int(round(self.position[2] - 0.5))
-        for ox in (-1, 0, 1):
-            for oz in (-1, 0, 1):
-                self.explored_cells.add((gx + ox, gz + oz))
+        newly: List[Tuple[int, int]] = []
+        if grid_coverage is not None:
+            for cell in cells_from_footprint(gx, gz, 1):
+                if try_mark_explored(self, cell, grid_coverage):
+                    newly.append(cell)
+        else:
+            for cell in cells_from_footprint(gx, gz, 1):
+                if cell not in self.explored_cells:
+                    self.explored_cells.add(cell)
+                    newly.append(cell)
+        return newly
 
     def heartbeat_stale(self, sim_now: float, timeout_s: float = 3.0) -> bool:
         if self.state == "dead":

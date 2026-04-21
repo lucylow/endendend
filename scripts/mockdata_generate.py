@@ -12,6 +12,8 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from mockdata.handoff_engine import BlindHandoffEngine  # noqa: E402
+from mockdata.replay_engine import load_protocol_events  # noqa: E402
+from mockdata.validators import validate_world_bundle  # noqa: E402
 from mockdata.worldgen import WorldGenerator  # noqa: E402
 from mockdata.worldgen_airground import AirGroundWorld  # noqa: E402
 
@@ -41,6 +43,35 @@ def _write_blind_handoff_assets() -> None:
     print(f"Wrote {(worlds_data / 'victims_proc.json').relative_to(ROOT)} (mirror)")
 
 
+def _write_fallen_comrade_data_worlds() -> None:
+    worlds = ROOT / "data" / "worlds"
+    worlds.mkdir(parents=True, exist_ok=True)
+    gen = WorldGenerator(42)
+    bundle = gen.generate()
+    ok, errs = validate_world_bundle(bundle)
+    if not ok:
+        raise SystemExit("validate_world_bundle failed: " + "; ".join(errs))
+
+    (worlds / "fallen_comrade_world.json").write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {(worlds / 'fallen_comrade_world.json').relative_to(ROOT)}")
+
+    grid_only = {"seed": bundle["seed"], "grid_size": 100, "grid": bundle["grid"]}
+    (worlds / "fallen_comrade_grid.json").write_text(json.dumps(grid_only, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {(worlds / 'fallen_comrade_grid.json').relative_to(ROOT)}")
+
+    sectors = {"seed": bundle["seed"], "sectors": bundle["sectors"]}
+    (worlds / "fallen_comrade_sectors.json").write_text(json.dumps(sectors, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {(worlds / 'fallen_comrade_sectors.json').relative_to(ROOT)}")
+
+    rec_dir = ROOT / "data" / "recordings"
+    rec_dir.mkdir(parents=True, exist_ok=True)
+    replay_path = rec_dir / "protocol_replay.json"
+    existing = load_protocol_events(replay_path)
+    if not existing:
+        replay_path.write_text(json.dumps([], indent=2) + "\n", encoding="utf-8")
+        print(f"Initialized {replay_path.relative_to(ROOT)}")
+
+
 def main() -> None:
     out_dir = ROOT / "public" / "data" / "fallen"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -61,6 +92,7 @@ def main() -> None:
         explored.write_text(json.dumps({"cells": []}, indent=2) + "\n", encoding="utf-8")
         print(f"Initialized {explored.relative_to(ROOT)}")
 
+    _write_fallen_comrade_data_worlds()
     _write_blind_handoff_assets()
 
 

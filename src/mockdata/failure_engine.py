@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from mockdata import rover_states

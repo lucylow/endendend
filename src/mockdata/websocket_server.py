@@ -1,14 +1,20 @@
 """
-WebSocket telemetry for the Fallen Comrade mock layer.
+Async WebSocket broadcaster for Blind Handoff snapshots.
 
-The asyncio + threading hub lives in `ws_runner.WsFallenComradeHub`; this module
-re-exports it under the name used in architecture docs.
+Production deployments typically use `mockdata.ws_handoff_runner.WsHandoffHub`, which
+embeds the same transport while matching the Track 2 `ws_runner` control messages.
+This module documents the contract and offers a small procedural façade.
 """
 
 from __future__ import annotations
 
-from mockdata.ws_runner import WsFallenComradeHub
+from typing import TYPE_CHECKING
 
-MockDataWebSocketServer = WsFallenComradeHub
+if TYPE_CHECKING:
+    from mockdata.ws_handoff_runner import WsHandoffHub
 
-__all__ = ["MockDataWebSocketServer", "WsFallenComradeHub"]
+
+def create_handoff_ws_hub() -> "WsHandoffHub":
+    from mockdata.ws_handoff_runner import WsHandoffHub
+
+    return WsHandoffHub()

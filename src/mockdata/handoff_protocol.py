@@ -41,14 +41,20 @@ def rescue_complete(victim_id: str, rover_id: str, t: float) -> Dict[str, Any]:
 
 
 def timeline_defaults() -> Dict[str, float]:
-    """Seconds relative to each multi-handoff cycle origin (T+0 sweep)."""
+    """Seconds relative to each multi-handoff cycle origin (T+0 sweep).
+
+    Judge-facing timeline:
+    T+15 victim detected, T+16 low-battery + auction broadcast, T+18 rover bids,
+    T+20 winner + aerial RTB, T+30 ground rescue complete.
+    """
     return {
         "detect_s": 15.0,
         "auction_start_s": 16.0,
-        "winner_s": 18.0,
-        "rtb_done_s": 20.0,
+        "bids_s": 18.0,
+        "winner_s": 20.0,
+        "rtb_done_s": 27.0,
         "rescue_arrival_s": 30.0,
-        "cycle_reset_s": 35.0,
+        "cycle_reset_s": 38.0,
     }
 
 

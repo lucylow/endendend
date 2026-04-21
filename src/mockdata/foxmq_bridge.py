@@ -32,3 +32,8 @@ class FoxMqExploredBridge:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"cells": [list(c) for c in sorted(self.cells)]}
         self.state_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+class FoxMQBridge(FoxMqExploredBridge):
+    """Doc-friendly alias for the shared exploration ledger."""
+
