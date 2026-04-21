@@ -27,6 +27,7 @@ export class SwarmRealtimeCoordinator {
     private readonly http: IntegrationHttpClient,
     private readonly cb: RealtimeCallbacks,
     private readonly pollMs = 5000,
+    private readonly pollFallbackSnapshot?: () => SwarmBackendSnapshot,
   ) {}
 
   start(wsUrl: string | null): void {
@@ -95,6 +96,13 @@ export class SwarmRealtimeCoordinator {
       this.cb.onSnapshot(snap);
     } catch (e) {
       logIntegrationError("poll_snapshot", e);
+      if (this.pollFallbackSnapshot) {
+        try {
+          this.cb.onSnapshot(this.pollFallbackSnapshot());
+        } catch (fb) {
+          logIntegrationError("poll_snapshot_demo_fallback", fb);
+        }
+      }
     }
   }
 }

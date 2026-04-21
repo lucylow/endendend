@@ -17,9 +17,15 @@ interface ImportMetaEnv {
   readonly VITE_SWARM_WS_URLS?: string;
   /**
    * Optional Vertex / FoxMQ FastAPI base (not the Vite dev server). Example: ``http://127.0.0.1:8090``.
+   * Same-origin dev: set to ``/api/swarm`` and run the Python gateway on the port used by ``VITE_SWARM_DEV_PROXY_TARGET`` (see ``vite.config.ts``).
    * Enables ``BackendBridgeStrip`` and mesh correlation in ``VertexSwarm`` when set.
    */
   readonly VITE_SWARM_BACKEND_HTTP?: string;
+  /**
+   * Hosted / Lovable integration UX: ``1``/``true`` = preview mode (demo backend strip, softer billing).
+   * ``0``/``false``/``off`` = never. Omit or ``auto`` = detect ``*.lovable.*`` / ``lovable.app`` / ``*.lovableproject.com``.
+   */
+  readonly VITE_INTEGRATION_PREVIEW?: string;
   /** Stripe.js publishable key (Checkout redirect + Elements) */
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
   /** Optional override when billing API is not same-origin (default: relative /api/...) */

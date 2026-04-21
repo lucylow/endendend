@@ -1,3 +1,4 @@
+import { logIntegrationError } from "@/lib/api/client";
 import { useSwarmStore } from "@/store/swarmStore";
 import { foxmqWeightedBroadcast } from "./foxmqBridge";
 import type { SwarmGatewayClient } from "./swarmGatewayClient";
@@ -28,8 +29,8 @@ export class VertexSwarm {
     if (gw && nodeId) {
       try {
         await gw.postCommand(nodeId, "get_health", {}, true);
-      } catch {
-        /* offline backend — simulation still valid */
+      } catch (e) {
+        logIntegrationError("vertex_mesh_ping", e);
       }
     }
     return next;

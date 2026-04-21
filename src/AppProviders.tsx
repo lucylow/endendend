@@ -18,13 +18,13 @@ const queryClient = new QueryClient({
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
-      <WalletProvider>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <WalletProvider>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
             <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>
-        </QueryClientProvider>
-      </WalletProvider>
+        </WalletProvider>
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }

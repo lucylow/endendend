@@ -9,6 +9,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import type { BillingContextValue, BillingSubscription } from "./types";
+import { isHostedIntegrationPreview } from "@/lib/integration/hostedPreview";
 import {
   billingFetchPath,
   clearStoredCustomerId,
@@ -21,6 +22,7 @@ import {
 const BillingContext = createContext<BillingContextValue | null>(null);
 
 const hasPublishableKey = Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const hostedPreview = isHostedIntegrationPreview();
 
 function networkErrorMessage(err: unknown): string {
   if (err instanceof TypeError && err.message.includes("fetch")) {
@@ -52,7 +54,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       const data = await parseJsonResponse(res);
       if (!res.ok) {
         if (res.status === 503) setBillingApiConfigured(false);
-        setError(typeof data.error === "string" ? data.error : "Failed to load subscription");
+        if (hostedPreview) {
+          setBillingApiConfigured(false);
+          setError(null);
+        } else {
+          setError(typeof data.error === "string" ? data.error : "Failed to load subscription");
+        }
         setSubscription(null);
         return;
       }
@@ -61,7 +68,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       setSubscription(sub ?? null);
     } catch (err) {
       if (import.meta.env.DEV) console.error("[billing] refreshSubscription", err);
-      setError(networkErrorMessage(err));
+      if (hostedPreview) {
+        setBillingApiConfigured(false);
+        setError(null);
+      } else {
+        setError(networkErrorMessage(err));
+      }
       setSubscription(null);
     } finally {
       setIsLoading(false);
@@ -97,7 +109,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       else toast.error("No checkout URL returned");
     } catch (err) {
       if (import.meta.env.DEV) console.error("[billing] checkout", err);
-      toast.error(networkErrorMessage(err));
+      if (hostedPreview) {
+        toast.message("Preview build", { description: "Billing API is not reachable from this host. Configure VITE_BILLING_API_URL for live checkout." });
+      } else {
+        toast.error(networkErrorMessage(err));
+      }
     }
   }, []);
 
@@ -129,7 +145,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       else toast.error("No portal URL returned");
     } catch (err) {
       if (import.meta.env.DEV) console.error("[billing] portal", err);
-      toast.error(networkErrorMessage(err));
+      if (hostedPreview) {
+        toast.message("Preview build", { description: "Customer portal needs the billing server on your network or VITE_BILLING_API_URL." });
+      } else {
+        toast.error(networkErrorMessage(err));
+      }
     }
   }, []);
 
@@ -158,7 +178,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         toast.success("Subscription synced");
       } catch (err) {
         if (import.meta.env.DEV) console.error("[billing] sync-session", err);
-        toast.error(networkErrorMessage(err));
+        if (hostedPreview) {
+          toast.message("Preview build", { description: "Could not reach billing API to confirm the session." });
+        } else {
+          toast.error(networkErrorMessage(err));
+        }
       }
     },
     [],

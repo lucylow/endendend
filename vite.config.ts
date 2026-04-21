@@ -15,6 +15,13 @@ export default defineConfig(({ command }) => ({
     proxy: {
       "/api/billing": { target: "http://127.0.0.1:3001", changeOrigin: true },
       "/api/stripe": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      /** Vertex FastAPI (``swarm/backend_service.py``). Override with ``VITE_SWARM_DEV_PROXY_TARGET``. Default 8090 avoids clashing with this dev server on 8080. */
+      "/api/swarm": {
+        target: process.env.VITE_SWARM_DEV_PROXY_TARGET ?? "http://127.0.0.1:8090",
+        changeOrigin: true,
+        ws: true,
+        rewrite: (p) => p.replace(/^\/api\/swarm/, "") || "/",
+      },
     },
   },
   plugins: [

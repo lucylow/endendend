@@ -3,6 +3,8 @@
  * (e.g. Supabase Edge Functions). Set `VITE_LOVABLE_EDGE_BASE_URL` at build time.
  */
 
+export { isHostedIntegrationPreview } from "./integration/hostedPreview";
+
 const base = (): string | undefined => {
   const v = import.meta.env.VITE_LOVABLE_EDGE_BASE_URL as string | undefined;
   return v?.replace(/\/$/, "");

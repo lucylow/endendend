@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Crown, ShieldCheck, Zap } from "lucide-react";
 import { useBilling } from "@/features/billing/useBilling";
+import { isHostedIntegrationPreview } from "@/lib/integration/hostedPreview";
 import { agentQuotaLabel } from "@/lib/monetization";
 
 interface Tier {
@@ -47,10 +48,19 @@ const tiers: Tier[] = [
 
 export function UpgradeSection() {
   const { createCheckoutSession, currentTier, publishableKeyConfigured, billingApiConfigured } = useBilling();
+  const preview = isHostedIntegrationPreview();
 
   return (
     <div className="space-y-4">
-      {(!billingApiConfigured || !publishableKeyConfigured) && (
+      {(!billingApiConfigured || !publishableKeyConfigured) && preview && (
+        <p className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-center text-sm text-sky-100/95">
+          This Lovable / static preview does not ship the Node billing server. Plans and pricing below are accurate; live checkout runs once you set{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_BILLING_API_URL</code>,{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_STRIPE_PUBLISHABLE_KEY</code>, and{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">npm run billing-server</code> (or your own API) behind the same origin or CORS.
+        </p>
+      )}
+      {(!billingApiConfigured || !publishableKeyConfigured) && !preview && (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-100">
           Billing API or Stripe publishable key is not configured. Set server env and{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_STRIPE_PUBLISHABLE_KEY</code>, then run{" "}

@@ -3,6 +3,8 @@ import type { ScenarioKey } from "@/components/scenario/ScenarioSwitcher";
 import type { SwarmBackendSnapshot } from "@/lib/tashi-sdk/swarmBackendTypes";
 import { IntegrationHttpClient, logIntegrationError } from "@/lib/api/client";
 import { SwarmRealtimeCoordinator, type RealtimeStatus } from "@/lib/api/realtime";
+import { createDemoSwarmBackendSnapshot } from "@/lib/integration/demoSwarmBackend";
+import { isSwarmGatewayDemoFallbackEnabled } from "@/lib/integration/swarmGatewayResilience";
 import { createFallbackFlatEnvelope, createFallbackMap } from "@/lib/api/fallback";
 import { LocalMissionRuntime } from "@/lib/runtime/localMissionRuntime";
 import {
@@ -341,6 +343,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     get().refreshFromLocal();
 
     if (httpOk && http) {
+      const pollDemo = isSwarmGatewayDemoFallbackEnabled() ? () => createDemoSwarmBackendSnapshot() : undefined;
       const coord = new SwarmRealtimeCoordinator(
         http,
         {
@@ -378,6 +381,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           onWsDrop: () => get().pushEvent("mesh", "WebSocket dropped — polling / retry", "live_http"),
         },
         6000,
+        pollDemo,
       );
       coord.start(http.wsUrl());
       set({ realtime: coord });
