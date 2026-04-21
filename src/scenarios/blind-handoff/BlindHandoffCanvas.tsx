@@ -12,6 +12,8 @@ import { SidePanel } from "./SidePanel";
 import { TerrainField } from "./TerrainField";
 import type { HandoffWorldJson } from "./types";
 import { VictimMarkers } from "./VictimMarkers";
+import { RescueComplete } from "./RescueComplete";
+import { RTBOverlay } from "./RTBOverlay";
 
 function RescueLine({
   rover,
@@ -97,6 +99,8 @@ export function BlindHandoffCanvas({ world }: { world: HandoffWorldJson | null }
         <Scene victims={victims} />
       </Canvas>
       <SidePanel battery={a.battery} auction={auction} rescues={rescues} groundCount={ground.length} />
+      <RTBOverlay />
+      <RescueComplete />
     </div>
   );
 }

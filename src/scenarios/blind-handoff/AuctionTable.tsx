@@ -15,6 +15,8 @@ export function AuctionTable({ auction }: { auction: AuctionState }) {
             <li key={id}>
               {id}: score {Number.isFinite(b?.score) ? b.score.toFixed(3) : "—"} @{" "}
               {Number.isFinite(b?.distance) ? b.distance.toFixed(1) : "—"}m
+              {typeof b?.battery === "number" ? ` · bat ${b.battery.toFixed(0)}%` : ""}
+              {b?.capacity ? ` · ${b.capacity}` : ""}
             </li>
           ))}
         </ul>
