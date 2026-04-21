@@ -3,7 +3,7 @@
 <package format="3">
   <name>endendend_vision</name>
   <version>0.1.0</version>
-  <description>YOLOv8 ONNX victim detection stub for ROS 2 (onnxruntime optional).</description>
+  <description>YOLOv8 ONNX victim detection and camera feed for ROS 2 Track 2 swarms.</description>
   <maintainer email="lucy@example.com">Lucy Low</maintainer>
   <license>Apache-2.0</license>
 
@@ -12,7 +12,14 @@
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>cv_bridge</depend>
   <depend>endendend_msgs</depend>
+
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-onnxruntime</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

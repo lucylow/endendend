@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package endendend.perception;
+
+message Vec3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message Mat3 {
+  repeated double row_major = 1;  // 9 elements
+}
+
+message GaussianComponent {
+  Vec3 mean = 1;
+  Mat3 cov = 2;
+  double weight = 3;
+}
+
+message AgentPose {
+  string agent_id = 1;
+  Vec3 position = 2;
+  double yaw_rad = 3;
+  uint64 stamp_ns = 4;
+}
+
+message Detection {
+  string class_name = 1;
+  double confidence = 2;
+  Vec3 center = 3;
+  Vec3 extent = 4;
+  uint64 stamp_ns = 5;
+}
+
+message SwarmMap {
+  repeated GaussianComponent components = 1;
+  repeated AgentPose agent_poses = 2;
+  repeated Detection detections = 3;
+  uint64 timestamp_ns = 4;
+}

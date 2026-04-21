@@ -30,6 +30,7 @@ def _group(context, *args, **kwargs):
                         'vertex_port': str(19790 + did),
                         'heartbeat_interval': LaunchConfiguration('heartbeat_interval').perform(context),
                         'election_timeout': LaunchConfiguration('election_timeout').perform(context),
+                        'use_potential_cmd': 'false',
                     }.items(),
                 ),
                 IncludeLaunchDescription(

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { ArrowRight, Route, Unplug, HeartPulse, RefreshCw, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

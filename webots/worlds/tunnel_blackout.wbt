@@ -1,0 +1,172 @@
+#VRML_SIM R2024a utf8
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "shared/swarm_robot.proto"
+WorldInfo {
+  title "Tunnel / Blackout — relay chain under degraded comms"
+  info [
+    "Long narrow corridor; relay roles + packet-loss events via supervisor",
+"Seed 42"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 60
+}
+Viewpoint {
+  position 18 14 55
+  orientation 0.12 0.94 0.32 4.4
+}
+Background {
+  skyColor [ 0.02 0.02 0.04 ]
+}
+RectangleArena {
+  floorSize 16.0 126.0
+  floorTileSize 2.0
+  wallHeight 4.0
+  wallThickness 0.15
+  wallColor 0.12 0.12 0.14
+}
+DirectionalLight {
+  direction 0.2 -1 0.25
+  intensity 0.45
+  castShadows TRUE
+}
+PointLight {
+  location 0 3 0
+  intensity 0.35
+  radius 28
+}
+Solid {
+  translation 5.05 2.25 60.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.15 0.15 0.18, transparency 0.82 }
+      }
+      geometry Box { size 0.1 4.5 120.0 }
+    }
+  ]
+  name "tunnel_wall_right"
+}
+Solid {
+  translation -5.05 2.25 60.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.15 0.15 0.18, transparency 0.82 }
+      }
+      geometry Box { size 0.1 4.5 120.0 }
+    }
+  ]
+  name "tunnel_wall_left"
+}
+DEF RoverA SwarmRobot {
+  translation 0.0 0.2 -45.0
+  name "RoverA"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "tunnel_blackout"
+  "--id"
+  "RoverA"
+  ]
+}
+Solid {
+  translation 0.0 0.02 -45.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.25 0.55 0.95, transparency 0.88 }
+      }
+      geometry Box { size 4.0 0.02 12.0 }
+    }
+  ]
+  name "RelayZone_RoverA"
+}
+DEF RoverB SwarmRobot {
+  translation 0.0 0.2 -15.0
+  name "RoverB"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "tunnel_blackout"
+  "--id"
+  "RoverB"
+  ]
+}
+Solid {
+  translation 0.0 0.02 -15.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.25 0.55 0.95, transparency 0.88 }
+      }
+      geometry Box { size 4.0 0.02 12.0 }
+    }
+  ]
+  name "RelayZone_RoverB"
+}
+DEF RoverC SwarmRobot {
+  translation 0.0 0.2 15.0
+  name "RoverC"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "tunnel_blackout"
+  "--id"
+  "RoverC"
+  ]
+}
+Solid {
+  translation 0.0 0.02 15.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.25 0.55 0.95, transparency 0.88 }
+      }
+      geometry Box { size 4.0 0.02 12.0 }
+    }
+  ]
+  name "RelayZone_RoverC"
+}
+DEF RoverD SwarmRobot {
+  translation 0.0 0.2 45.0
+  name "RoverD"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "tunnel_blackout"
+  "--id"
+  "RoverD"
+  ]
+}
+Solid {
+  translation 0.0 0.02 45.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.25 0.55 0.95, transparency 0.88 }
+      }
+      geometry Box { size 4.0 0.02 12.0 }
+    }
+  ]
+  name "RelayZone_RoverD"
+}
+Robot {
+  translation 0 0.12 0
+  name "scenario_emitter"
+  controller "scenario_supervisor"
+  controllerArgs [
+  "--scenario"
+  "tunnel_blackout"
+  "--seed"
+  "42"
+  ]
+  supervisor TRUE
+  children []
+}

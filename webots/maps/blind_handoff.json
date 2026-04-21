@@ -1,0 +1,26 @@
+{
+  "agents": [
+    "Aerial1",
+    "RoverA",
+    "RoverB",
+    "RoverC"
+  ],
+  "auction": {
+    "battery_threshold": 0.25
+  },
+  "scenario": "blind_handoff",
+  "seed": 42,
+  "size": [
+    200.0,
+    200.0
+  ],
+  "victims": [
+    "Victim01"
+  ],
+  "world_file": "blind_handoff.wbt",
+  "zones": [
+    "VictimZone",
+    "SweepLane",
+    "RescueZone"
+  ]
+}

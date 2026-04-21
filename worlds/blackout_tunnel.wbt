@@ -3,22 +3,24 @@
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/robots/dji/protos/DJIMavic2Pro.proto"
+EXTERNPROTO "victim.proto"
 
 WorldInfo {
-  title "Track 2 Blackout Tunnel (ROS 2)"
+  title "Track 2 Blackout Tunnel — 5-drone SAR swarm (ROS 2 Humble)"
   info [
-    "5-drone SAR swarm — relay chain in tunnel / blackout (drone0..drone4)"
-    "Vertex P2P + ROS 2 Humble; launch: ros2 launch endendend_launch swarm_track2_launch.py"
-    "YOLOv8 / YASMIN / DDS — zero cloud dependency (simulation)"
+    "Tunnel fog + 10 YOLO-style victims + Vertex / relay chain (drone0..drone4)"
+    "ROS 2: ros2 launch endendend_launch swarm_track2_launch.py"
+    "Webots-only sim services: /webots_supervisor/kill_drone + /webots_supervisor/inject_loss (std_srvs/Empty)"
+    "Packaged world + protos: share/endendend_launch/worlds/"
   ]
   gravity 0 -9.81 0
   physics "ODE"
-  basicTimeStep 32
-  FPS 30
+  basicTimeStep 16
+  FPS 60
 }
 
 Viewpoint {
-  position 0 50 100
+  position 0 55 120
   orientation 0.707 0.707 0 3.14159
 }
 
@@ -26,74 +28,221 @@ TexturedBackground {
   texture "noon_cloudy_countryside"
 }
 
+Fog {
+  color 0.08 0.08 0.14
+  visibilityRange 32
+}
+
 RectangleArena {
   floorSize 200 200
   floorTileSize 10
   wallHeight 5
   wallThickness 0.2
-  wallColor 0.5 0.5 0.5
+  wallColor 0.45 0.45 0.48
 }
 
 DirectionalLight {
   direction 0.5 -1 0.5
-  intensity 1.5
+  intensity 1.2
   castShadows TRUE
 }
 
 PointLight {
-  location 0 30 0
-  intensity 0.8
-  radius 100
+  location 0 28 0
+  intensity 0.65
+  radius 120
 }
 
-# --- 5 drones (DEF names align with supervisor DRONE0..DRONE4 pattern) ---
+# --- Tunnel shell (radio / LOS metaphor): long concrete corridor ---
+DEF TUNNEL_WALL_LEFT Solid {
+  translation -6 2.5 60
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.42 0.42 0.44
+        roughness 0.82
+        metalness 0.0
+      }
+      geometry Box {
+        size 1 5 120
+      }
+    }
+  ]
+  boundingObject Box {
+    size 1 5 120
+  }
+  physics NULL
+}
 
-DJIMavic2Pro {
+DEF TUNNEL_WALL_RIGHT Solid {
+  translation 6 2.5 60
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.4 0.4 0.42
+        roughness 0.82
+        metalness 0.0
+      }
+      geometry Box {
+        size 1 5 120
+      }
+    }
+  ]
+  boundingObject Box {
+    size 1 5 120
+  }
+  physics NULL
+}
+
+DEF TUNNEL_FLOOR Solid {
+  translation 0 0.05 60
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.32 0.3 0.28
+        roughness 0.95
+        metalness 0.0
+      }
+      geometry Box {
+        size 11 0.1 120
+      }
+    }
+  ]
+  boundingObject Box {
+    size 11 0.1 120
+  }
+  physics NULL
+}
+
+# --- 5 drones (DEF DRONE0..4 for Webots supervisor failure injection) ---
+
+DEF DRONE0 DJIMavic2Pro {
   translation 0 2 50
   rotation 0 1 0 0
   name "drone_0"
   controller "swarm_controller"
-  controllerArgs ["--id" "drone_0" "--port" "9001"]
+  controllerArgs [
+    "--id"
+    "drone_0"
+    "--port"
+    "9001"
+    "--ros2-vision"
+  ]
   customData "drone_0"
 }
 
-DJIMavic2Pro {
+DEF DRONE1 DJIMavic2Pro {
   translation 10 2 40
   rotation 0 1 0 0
   name "drone_1"
   controller "swarm_controller"
-  controllerArgs ["--id" "drone_1" "--port" "9002"]
+  controllerArgs [
+    "--id"
+    "drone_1"
+    "--port"
+    "9002"
+    "--ros2-vision"
+  ]
   customData "drone_1"
 }
 
-DJIMavic2Pro {
+DEF DRONE2 DJIMavic2Pro {
   translation -10 2 30
   rotation 0 1 0 0
   name "drone_2"
   controller "swarm_controller"
-  controllerArgs ["--id" "drone_2" "--port" "9003"]
+  controllerArgs [
+    "--id"
+    "drone_2"
+    "--port"
+    "9003"
+    "--ros2-vision"
+  ]
   customData "drone_2"
 }
 
-DJIMavic2Pro {
+DEF DRONE3 DJIMavic2Pro {
   translation 15 2 20
   rotation 0 1 0 0
   name "drone_3"
   controller "swarm_controller"
-  controllerArgs ["--id" "drone_3" "--port" "9004"]
+  controllerArgs [
+    "--id"
+    "drone_3"
+    "--port"
+    "9004"
+    "--ros2-vision"
+  ]
   customData "drone_3"
 }
 
-DJIMavic2Pro {
+DEF DRONE4 DJIMavic2Pro {
   translation -15 2 10
   rotation 0 1 0 0
   name "drone_4"
   controller "swarm_controller"
-  controllerArgs ["--id" "drone_4" "--port" "9005"]
+  controllerArgs [
+    "--id"
+    "drone_4"
+    "--port"
+    "9005"
+    "--ros2-vision"
+  ]
   customData "drone_4"
 }
 
-# --- Blackout environment ---
+# --- 10 mock victims (depths ~25..115 m along +Z) ---
+Victim {
+  position -3.5 0.35 25
+  rotation 0 1 0 0.35
+}
+
+Victim {
+  position 3.2 0.35 35
+  rotation 0 1 0 -0.5
+}
+
+Victim {
+  position -2.8 0.35 45
+  rotation 0 1 0 0.9
+}
+
+Victim {
+  position 4.0 0.35 55
+  rotation 0 1 0 -0.25
+}
+
+Victim {
+  position -4.2 0.35 65
+  rotation 0 1 0 0.15
+}
+
+Victim {
+  position 2.5 0.35 75
+  rotation 0 1 0 -0.7
+}
+
+Victim {
+  position -3.0 0.35 85
+  rotation 0 1 0 0.55
+}
+
+Victim {
+  position 3.8 0.35 95
+  rotation 0 1 0 -0.4
+}
+
+Victim {
+  position -2.2 0.35 105
+  rotation 0 1 0 0.2
+}
+
+Victim {
+  position 4.5 0.35 115
+  rotation 0 1 0 -0.65
+}
+
+# --- Blackout rubble / hazards (legacy Track 2 props) ---
 
 Solid {
   translation 50 0 50
@@ -175,34 +324,10 @@ Solid {
   name "hazard_zone"
 }
 
-Solid {
-  translation 55 0.1 55
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0 1 0
-        transparency 0.5
-      }
-      geometry Sphere {
-        radius 2
-      }
-    }
-  ]
-  name "victim_marker_1"
-}
-
-Solid {
-  translation 65 0.1 65
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0 1 0
-        transparency 0.5
-      }
-      geometry Sphere {
-        radius 2
-      }
-    }
-  ]
-  name "victim_marker_2"
+# --- Webots supervisor (failure injection in-sim; optional rclpy) ---
+Robot {
+  translation 0 3 -25
+  name "blackout_supervisor"
+  controller "supervisor_controller"
+  supervisor TRUE
 }

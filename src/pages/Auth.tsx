@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ export default function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && session) navigate("/dashboard", { replace: true });
+    if (!loading && session) navigate({ to: "/swarm", replace: true });
   }, [session, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,7 +36,7 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Signed in successfully");
-        navigate("/dashboard");
+        navigate({ to: "/swarm" });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Authentication failed";
@@ -92,7 +92,7 @@ export default function AuthPage() {
             type="button"
             variant="outline"
             className="w-full"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate({ to: "/swarm" })}
           >
             🚀 Enter Demo Mode
           </Button>

@@ -1,0 +1,41 @@
+#VRML_SIM R2024a utf8
+# Shared lightweight rover / aerial node for hackathon worlds.
+PROTO SwarmRobot [
+  field SFVec3f    translation   0 0.2 0
+  field SFRotation rotation      0 0 1 0
+  field SFString   name          "RoverA"
+  field SFString   controller    "void"
+  field MFString   controllerArgs []
+  field SFString   type          "ground"
+]
+{
+  Robot {
+    translation IS translation
+    rotation IS rotation
+    name IS name
+    controller IS controller
+    controllerArgs IS controllerArgs
+    children [
+      DEF body Shape {
+        appearance Appearance {
+          material Material { diffuseColor 0.35 0.35 0.42 }
+        }
+        geometry Box { size 0.45 0.12 0.45 }
+      }
+      LED {
+        name "led"
+        color 0.2 0.8 0.3
+      }
+      GPS { name "gps" }
+      DistanceSensor {
+        name "distance_sensor"
+        translation 0 0.08 0
+        lookupTable [ 0 0 0, 0.5 500 0 ]
+        numberOfRays 1
+        aperture 0.8
+      }
+    ]
+    boundingObject USE body
+    physics NULL
+  }
+}

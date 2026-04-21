@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -20,7 +20,8 @@ import { useSwarmStore } from "@/store/swarmStore";
 import SwarmScene from "@/components/SwarmScene";
 
 export default function AgentDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: rawId } = useParams({ strict: false });
+  const id = typeof rawId === "string" ? rawId : undefined;
   const { agents, tasks, selectAgent } = useSwarmStore();
   const agent = agents.find((a) => a.id === id);
 
@@ -33,7 +34,7 @@ export default function AgentDetailPage() {
     return (
       <div className="space-y-6">
         <Button variant="ghost" size="sm" className="gap-2 -ml-2" asChild>
-          <Link to="/dashboard/agents">
+          <Link to="/drones">
             <ArrowLeft className="h-4 w-4" />
             Back to agents
           </Link>
@@ -46,7 +47,7 @@ export default function AgentDetailPage() {
               another callsign.
             </p>
             <Button asChild className="mt-2">
-              <Link to="/dashboard/agents">View all agents</Link>
+              <Link to="/drones">View all agents</Link>
             </Button>
           </CardContent>
         </Card>
@@ -61,7 +62,7 @@ export default function AgentDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <Button variant="ghost" size="sm" className="gap-2 -ml-2 w-fit" asChild>
-            <Link to="/dashboard/agents">
+            <Link to="/drones">
               <ArrowLeft className="h-4 w-4" />
               Fleet roster
             </Link>

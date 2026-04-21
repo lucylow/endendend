@@ -1,0 +1,21 @@
+#VRML_SIM R2024a utf8
+PROTO ZoneMarker [
+  field SFVec3f translation 0 0.05 0
+  field SFVec3f size 4 0.04 4
+  field SFColor color 0.2 0.6 0.9
+  field SFString name "Zone"
+]
+{
+  Solid {
+    translation IS translation
+    children [
+      Shape {
+        appearance Appearance {
+          material Material { diffuseColor IS color, transparency 0.85 }
+        }
+        geometry Box { size IS size }
+      }
+    ]
+    name IS name
+  }
+}

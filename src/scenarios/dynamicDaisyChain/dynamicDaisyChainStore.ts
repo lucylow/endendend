@@ -214,8 +214,20 @@ export const useDynamicDaisyChainStore = create<DynamicDaisyChainStoreState & Ac
       },
 
       setReplayMode: (replayMode) => {
-        set({ replayMode, running: false });
         cancelAnimationFrame(raf);
+        if (replayMode) {
+          const frames = get().replay.frames;
+          const last = frames.length ? frames[frames.length - 1] : undefined;
+          set({
+            replayMode: true,
+            running: false,
+            snapshot: last?.snapshot ?? get().snapshot,
+            replayIndex: Math.max(0, frames.length - 1),
+          });
+          if (last) pushBridge(last.snapshot);
+        } else {
+          set({ replayMode: false });
+        }
       },
 
       setReplayIndex: (replayIndex) => {

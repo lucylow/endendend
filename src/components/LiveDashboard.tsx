@@ -1,3 +1,5 @@
+import { phaseLabel } from "@/scenarios/dynamicDaisyChain/networkTimeline";
+import { useDynamicDaisyChainStore } from "@/scenarios/dynamicDaisyChain/dynamicDaisyChainStore";
 import { useSwarmStore } from "@/stores/swarmStore";
 
 function countLiveMapCells(globalMap: number[][]): number {
@@ -22,6 +24,7 @@ export default function LiveDashboard() {
   const tunnelDepth = useSwarmStore((s) => s.tunnelDepth);
   const relayChain = useSwarmStore((s) => s.relayChain);
   const globalMap = useSwarmStore((s) => s.globalMap);
+  const daisySnapshot = useDynamicDaisyChainStore((s) => s.snapshot);
 
   const liveCells = countLiveMapCells(globalMap);
   const timeLabel = Number.isFinite(time) ? time.toFixed(1) : "0.0";
@@ -60,6 +63,12 @@ export default function LiveDashboard() {
           <span className="text-muted-foreground">Relay</span>{" "}
           {relayChain.length ? relayChain.join(" → ") : "—"}
         </div>
+        {scenario === "daisy" && daisySnapshot ? (
+          <div className="sm:col-span-2 text-amber-200/90">
+            <span className="text-muted-foreground">Daisy mock</span> {phaseLabel(daisySnapshot.phase)} · ingress{" "}
+            {(daisySnapshot.relayPlan.ingressQuality * 100).toFixed(0)}%
+          </div>
+        ) : null}
       </div>
     </div>
   );

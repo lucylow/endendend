@@ -1,0 +1,136 @@
+#VRML_SIM R2024a utf8
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "shared/swarm_robot.proto"
+EXTERNPROTO "shared/victim_marker.proto"
+WorldInfo {
+  title "Blind Handoff — aerial sweep + ground rescue"
+  info [
+    "Aerial1 + RoverA/B/C on a 200×200 m field; victim + auction via supervisor",
+"Seed 42: victim placement deterministic inside victim zone"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 60
+}
+Viewpoint {
+  position 120 90 120
+  orientation 0.28 0.92 0.28 4.2
+}
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+RectangleArena {
+  floorSize 200.0 200.0
+  floorTileSize 10.0
+  wallHeight 5.0
+  wallThickness 0.15
+  wallColor 0.5 0.5 0.52
+}
+DirectionalLight {
+  direction 0.4 -1 0.3
+  intensity 1.2
+  castShadows TRUE
+}
+Solid {
+  translation 0.0 0.03 30.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.9 0.85 0.2, transparency 0.88 }
+      }
+      geometry Box { size 44 0.02 44 }
+    }
+  ]
+  name "VictimZone"
+}
+Solid {
+  translation -85.0 0.025 0.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.2 0.85 0.9, transparency 0.88 }
+      }
+      geometry Box { size 20.0 0.02 60 }
+    }
+  ]
+  name "SweepLane"
+}
+Solid {
+  translation 50.0 0.025 -75.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.3 0.9 0.4, transparency 0.88 }
+      }
+      geometry Box { size 40 0.02 30.0 }
+    }
+  ]
+  name "RescueZone"
+}
+DEF Victim01 VictimMarker {
+  translation 5.298218341399583 0.2 11.950408698461343
+  name "Victim01"
+}
+DEF Aerial1 SwarmRobot {
+  translation -75.0 6.0 -75.0
+  name "Aerial1"
+  type "aerial"
+  controller "aerial_controller"
+  controllerArgs [
+  "--scenario"
+  "blind_handoff"
+  "--id"
+  "Aerial1"
+  ]
+}
+DEF RoverA SwarmRobot {
+  translation -60.0 0.2 -50.0
+  name "RoverA"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "blind_handoff"
+  "--id"
+  "RoverA"
+  ]
+}
+DEF RoverB SwarmRobot {
+  translation -40.0 0.2 -55.0
+  name "RoverB"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "blind_handoff"
+  "--id"
+  "RoverB"
+  ]
+}
+DEF RoverC SwarmRobot {
+  translation -50.0 0.2 -35.0
+  name "RoverC"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "blind_handoff"
+  "--id"
+  "RoverC"
+  ]
+}
+Robot {
+  translation 0 0.12 0
+  name "scenario_emitter"
+  controller "scenario_supervisor"
+  controllerArgs [
+  "--scenario"
+  "blind_handoff"
+  "--seed"
+  "42"
+  ]
+  supervisor TRUE
+  children []
+}

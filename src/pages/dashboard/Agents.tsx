@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSwarmStore } from "@/store/swarmStore";
 import { Progress } from "@/components/ui/progress";
@@ -150,7 +150,7 @@ export default function AgentsPage() {
           </p>
         </div>
         <Link
-          to="/dashboard/swarm"
+          to="/swarm"
           className="rounded-xl border border-border/80 bg-card/40 px-4 py-3 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/60 font-mono max-w-xs self-start md:self-end"
         >
           <div className="text-[10px] uppercase tracking-widest text-primary/90 mb-1 flex items-center gap-1.5">
@@ -239,7 +239,7 @@ export default function AgentsPage() {
           <CardContent className="py-12 flex flex-col items-center gap-4 text-center text-sm text-muted-foreground">
             <p>No agents in the swarm store yet. Start a simulation from the overview or live simulation page.</p>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/dashboard">Go to overview</Link>
+              <Link to="/metrics">Analytics</Link>
             </Button>
           </CardContent>
         </Card>
@@ -270,7 +270,8 @@ export default function AgentsPage() {
               transition={listItemTransition(i)}
             >
               <Link
-                to={`/dashboard/agents/${agent.id}`}
+                to="/drones/$id"
+                params={{ id: agent.id }}
                 className="block group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 onClick={() => selectAgent(agent.id)}
               >

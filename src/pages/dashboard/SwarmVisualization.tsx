@@ -179,7 +179,7 @@ function VizControlsPanel({
   );
 }
 
-export default function SwarmVisualizationPage() {
+export default function SwarmVisualizationPage({ layout = "dashboard" }: { layout?: "dashboard" | "mission" }) {
   const [cameraMode, setCameraMode] = useState<CameraMode>("orbit");
   const [showTrails, setShowTrails] = useState(true);
   const [showConnections, setShowConnections] = useState(true);
@@ -196,8 +196,13 @@ export default function SwarmVisualizationPage() {
   useRobotHealthSync();
   useSwarmRealtime();
 
+  const shell =
+    layout === "mission"
+      ? "relative min-h-[calc(100dvh-7rem)] w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black md:min-h-[calc(100dvh-4rem)]"
+      : "relative -mx-5 -mt-2 min-h-[calc(100dvh-5rem)] w-[calc(100%+2.5rem)] overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-zinc-900 via-zinc-950 to-black sm:-mx-8 sm:w-[calc(100%+4rem)]";
+
   return (
-    <div className="relative -mx-5 -mt-2 min-h-[calc(100dvh-5rem)] w-[calc(100%+2.5rem)] overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-zinc-900 via-zinc-950 to-black sm:-mx-8 sm:w-[calc(100%+4rem)]">
+    <div className={shell}>
       <div className="absolute inset-0 z-10">
         <Canvas
           camera={{ position: [0, 16, 32], fov: 58 }}

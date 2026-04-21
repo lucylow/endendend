@@ -4,6 +4,10 @@ import type { SimNode } from "./types";
 import type { TunnelGeometry } from "./types";
 import { endToEndQuality, signalHopsAlongChain } from "./signalModel";
 
+function nid(n: SimNode): string {
+  return n.profile.id;
+}
+
 function entranceVirtualId(): string {
   return "__entrance__";
 }
@@ -17,7 +21,7 @@ export function pickExplorer(nodes: SimNode[]): SimNode | null {
 }
 
 function relayCandidateScore(n: SimNode, lead: SimNode, geom: TunnelGeometry, entranceS: number): number {
-  if (n.id === lead.id || n.connectivity === "offline") return -1;
+  if (nid(n) === nid(lead) || n.connectivity === "offline") return -1;
   const mid = (lead.s + entranceS) / 2;
   const anchorBonus = geom.relayAnchorZones.some((z) => n.s >= z.startS && n.s <= z.endS) ? 0.12 : 0;
   const spacing = Math.min(1, Math.abs(n.s - mid) / 25);
@@ -43,20 +47,21 @@ export function planRelayChain(
 ): RelayPlanResult {
   const notes: string[] = [];
   const virtual = entranceVirtualId();
-  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const byId = new Map(nodes.map((n) => [nid(n), n]));
 
-  const relays = new Set(nodes.filter((n) => n.isRelay && n.id !== lead.id).map((n) => n.id));
+  const relays = new Set(nodes.filter((n) => n.isRelay && nid(n) !== nid(lead)).map(nid));
 
   const measure = (relayIds: string[]) => {
-    const idChain = [virtual, ...relayIds.sort((a, b) => byId.get(a)!.s - byId.get(b)!.s), lead.id];
+    const idChain = [virtual, ...relayIds.sort((a, b) => byId.get(a)!.s - byId.get(b)!.s), nid(lead)];
     const nodeMap = new Map<string, SimNode>();
-    const leadNode = byId.get(lead.id)!;
+    const leadNode = byId.get(nid(lead))!;
     nodeMap.set(virtual, {
       ...leadNode,
-      id: virtual,
+      profile: { ...leadNode.profile, id: virtual },
       s: geom.entranceS,
       isRelay: true,
       relayFrozen: true,
+      relayHoldS: 0,
       role: "relay",
       forwardLoad: 0,
       hopLoss: 0,
@@ -66,7 +71,7 @@ export function planRelayChain(
       const n = byId.get(id);
       if (n) nodeMap.set(id, n);
     }
-    nodeMap.set(lead.id, leadNode);
+    nodeMap.set(nid(lead), leadNode);
     const hops = signalHopsAlongChain(idChain, nodeMap, geom, rng, 0.35);
     const q = endToEndQuality(hops);
     return { idChain, hops, q };
@@ -80,14 +85,14 @@ export function planRelayChain(
       const ingress = hops.length ? 1 - hops[0].loss : q;
       return {
         orderedRelayIds: relayIds,
-        chainPath: ["entrance", ...relayIds, lead.id],
+        chainPath: ["entrance", ...relayIds, nid(lead)],
         ingressQuality: ingress,
         leadQuality: q,
         notes,
       };
     }
 
-    const standbys = nodes.filter((n) => !relays.has(n.id) && n.id !== lead.id && n.connectivity !== "offline");
+    const standbys = nodes.filter((n) => !relays.has(nid(n)) && nid(n) !== nid(lead) && n.connectivity !== "offline");
     if (!standbys.length) {
       notes.push("no standby candidates");
       break;
@@ -102,16 +107,16 @@ export function planRelayChain(
       }
     }
     if (!best) break;
-    relays.add(best.id);
+    relays.add(nid(best));
     relayIds = [...relays].sort((a, b) => byId.get(a)!.s - byId.get(b)!.s);
-    notes.push(`plan adds ${best.id} score=${bestScore.toFixed(2)}`);
+    notes.push(`plan adds ${nid(best)} score=${bestScore.toFixed(2)}`);
   }
 
   const { hops, q } = measure(relayIds);
   const ingress = hops.length ? 1 - hops[0].loss : q;
   return {
     orderedRelayIds: relayIds,
-    chainPath: ["entrance", ...relayIds, lead.id],
+    chainPath: ["entrance", ...relayIds, nid(lead)],
     ingressQuality: ingress,
     leadQuality: q,
     notes,

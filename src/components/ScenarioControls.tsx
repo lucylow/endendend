@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { Pause, Play, FastForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSwarmStore } from "@/stores/swarmStore";

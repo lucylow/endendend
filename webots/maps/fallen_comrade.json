@@ -1,0 +1,28 @@
+{
+  "agents": [
+    "RoverA",
+    "RoverB",
+    "RoverC",
+    "RoverD",
+    "RoverE"
+  ],
+  "failure": {
+    "rover_kill": "RoverB",
+    "sim_time_s": 18.0
+  },
+  "scenario": "fallen_comrade",
+  "seed": 42,
+  "size": [
+    100.0,
+    100.0
+  ],
+  "victims": [],
+  "world_file": "fallen_comrade.wbt",
+  "zones": [
+    "SectorA",
+    "SectorB",
+    "SectorC",
+    "SectorD",
+    "SectorE"
+  ]
+}

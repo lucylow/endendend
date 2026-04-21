@@ -41,6 +41,8 @@ class VisionNode(Node):
         p.y = 0.0
         p.z = 0.5
         msg.centroids = [p]
+        msg.confidences = [0.5]
+        msg.track_ids = [0]
         self._pub.publish(msg)
 
 

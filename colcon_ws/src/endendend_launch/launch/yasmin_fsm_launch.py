@@ -16,6 +16,12 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument('vertex_port', default_value='19790'),
             DeclareLaunchArgument('heartbeat_interval', default_value='2.0'),
             DeclareLaunchArgument('election_timeout', default_value='5.0'),
+            DeclareLaunchArgument('use_potential_cmd', default_value='false'),
+            DeclareLaunchArgument(
+                'use_safety_layer',
+                default_value='false',
+                description='Publish cmd_vel_raw; safety_watchdog muxes to cmd_vel',
+            ),
             Node(
                 package='endendend_core',
                 executable='vertex_swarm_fsm',
@@ -42,6 +48,12 @@ def generate_launch_description() -> LaunchDescription:
                         'initial_depth': ParameterValue(LaunchConfiguration('initial_depth'), value_type=float),
                         'vertex_peer_port': ParameterValue(LaunchConfiguration('vertex_port'), value_type=int),
                         'enable_yasmin_thread': False,
+                        'use_potential_cmd': ParameterValue(
+                            LaunchConfiguration('use_potential_cmd'), value_type=bool
+                        ),
+                        'use_safety_layer': ParameterValue(
+                            LaunchConfiguration('use_safety_layer'), value_type=bool
+                        ),
                     }
                 ],
                 output='screen',

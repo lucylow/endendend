@@ -1,0 +1,19 @@
+#VRML_SIM R2024a utf8
+PROTO VictimMarker [
+  field SFVec3f translation 0 0.2 0
+  field SFString name "Victim01"
+]
+{
+  Solid {
+    translation IS translation
+    children [
+      Shape {
+        appearance Appearance {
+          material Material { diffuseColor 0.95 0.2 0.15 }
+        }
+        geometry Sphere { radius 0.28 }
+      }
+    ]
+    name IS name
+  }
+}

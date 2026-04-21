@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "@tanstack/react-router";
 import ScenarioWalkthroughPanel from "@/components/scenarios/ScenarioWalkthroughPanel";
 import { getScenarioWalkthrough } from "@/lib/scenarios/scenarioWalkthroughs";
 import { motion } from "framer-motion";
@@ -36,10 +36,17 @@ import { cn } from "@/lib/utils";
 import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 export default function SearchRescueDemo() {
-  const { scenarioSlug } = useParams<{ scenarioSlug: string }>();
-  const resolved = scenarioSlug ? getScenarioBySlug(scenarioSlug) : undefined;
+  const { scenarioSlug } = useParams({ strict: false });
+  const slug = typeof scenarioSlug === "string" ? scenarioSlug : "";
+  const resolved = slug ? getScenarioBySlug(slug) : undefined;
   if (!resolved) {
-    return <Navigate to={`/scenarios/search-rescue/${SAR_SCENARIOS[0].slug}`} replace />;
+    return (
+      <Navigate
+        to="/scenarios/search-rescue/$scenarioSlug"
+        params={{ scenarioSlug: SAR_SCENARIOS[0].slug }}
+        replace
+      />
+    );
   }
   if (resolved.slug === "arena-race") {
     return <Navigate to="/scenarios/arena-obstacle" replace />;
@@ -90,7 +97,7 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
 
   const pickScenario = useCallback(
     (slug: string) => {
-      navigate(`/scenarios/search-rescue/${slug}`);
+      navigate({ to: "/scenarios/search-rescue/$scenarioSlug", params: { scenarioSlug: slug } });
       bumpPerformanceDemo();
     },
     [navigate, bumpPerformanceDemo],
@@ -160,10 +167,10 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
             <ConnectWalletButton variant="outline" size="sm" className="shrink-0" />
             {scenario.slug === "multi-swarm-handoff" ? <HandoverControls /> : null}
             <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex" asChild>
-              <Link to="/dashboard/scenarios">Scenario index</Link>
+              <Link to="/drones">Fleet index</Link>
             </Button>
             <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex" asChild>
-              <Link to="/dashboard/swarm">Classic viz</Link>
+              <Link to="/swarm">Live swarm</Link>
             </Button>
             <Button
               variant="secondary"
@@ -487,8 +494,8 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
             consensus (sim).
           </p>
           <p className="mt-2">
-            <Link to="/dashboard/scenarios" className="text-primary hover:underline">
-              Dashboard scenarios
+            <Link to="/drones" className="text-primary hover:underline">
+              Fleet / scenarios hub
             </Link>
             {" · "}
             <Link to="/vertex-swarm" className="text-primary hover:underline">

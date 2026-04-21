@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import MissionStatusStrip from "@/components/MissionStatusStrip";
 import { DashboardProtocolBar } from "@/components/DashboardProtocolBar";
@@ -43,28 +43,28 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Protocol",
     items: [
-      { to: "/dashboard/staking", label: "Staking & rewards", icon: DollarSign },
-      { to: "/dashboard/auctions", label: "Task auctions", icon: Gavel },
-      { to: "/dashboard/billing", label: "Billing", icon: CreditCard },
+      { to: "/settings", label: "Staking & rewards", icon: DollarSign },
+      { to: "/tasks", label: "Task auctions", icon: Gavel },
+      { to: "/settings", label: "Billing", icon: CreditCard },
     ],
   },
   {
     label: "Command",
     items: [
-      { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
-      { to: "/dashboard/simulation", label: "Live simulation", icon: Landmark },
-      { to: "/dashboard/vertex-swarm", label: "Vertex 2.0 swarm", icon: Share2 },
-      { to: "/dashboard/swarm", label: "3D swarm viz", icon: Box },
-      { to: "/dashboard/victim-detection", label: "Victim detection", icon: ScanEye },
-      { to: "/dashboard/scalability", label: "Scalability", icon: Activity },
-      { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/metrics", label: "Overview", icon: LayoutDashboard, end: true },
+      { to: "/worlds", label: "Live simulation", icon: Landmark },
+      { to: "/vertex", label: "Vertex 2.0 swarm", icon: Share2 },
+      { to: "/swarm", label: "3D swarm viz", icon: Box },
+      { to: "/safety", label: "Victim & safety", icon: ScanEye },
+      { to: "/metrics", label: "Scalability", icon: Activity },
+      { to: "/metrics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {
     label: "Missions",
     items: [
-      { to: "/dashboard/replay", label: "Mission replay", icon: Film },
-      { to: "/dashboard/scenarios", label: "Scenarios", icon: Clapperboard },
+      { to: "/replay", label: "Mission replay", icon: Film },
+      { to: "/drones", label: "Fleet roster", icon: Clapperboard },
       { to: "/scenarios/search-rescue", label: "SAR master demo", icon: LifeBuoy },
       { to: "/scenarios/arena-obstacle", label: "Arena obstacle course", icon: Trophy },
       { to: "/scenarios/multi-swarm-handoff", label: "Multi-swarm handover", icon: GitMerge },
@@ -78,8 +78,8 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Fleet",
     items: [
-      { to: "/dashboard/agents", label: "Agents", icon: Users },
-      { to: "/dashboard/settings", label: "Settings", icon: Settings },
+      { to: "/drones", label: "Agents", icon: Users },
+      { to: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];

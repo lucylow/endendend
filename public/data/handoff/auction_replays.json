@@ -1,0 +1,6 @@
+[
+  {"event": "VICTIM_DETECTED", "victim": "victim_1", "sim_t": 15.0},
+  {"event": "AUCTION_START", "coords": [18.5, 0.72, -42.3], "sim_t": 16.0},
+  {"event": "AUCTION_WINNER", "winner": "RoverHeavy1", "sim_t": 18.0},
+  {"type": "RESCUE_COMPLETE", "victim_id": "victim_1", "rover_id": "RoverHeavy1", "t": 30.0, "sim_t": 30.0}
+]

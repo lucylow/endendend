@@ -1,0 +1,13 @@
+{
+  "scenario": "template",
+  "world_file": "template.wbt",
+  "size": [
+    0,
+    0
+  ],
+  "seed": 42,
+  "agents": [],
+  "victims": [],
+  "zones": [],
+  "note": "Populated by scenario_supervisor when started with --replay-dir"
+}

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { BillingCard } from "./BillingCard";
@@ -105,23 +105,19 @@ function TierComparison() {
 }
 
 function CheckoutSessionSync() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const sessionId = searchParams.get("session_id");
+  const searchStr = useRouterState({ select: (s) => s.location.search });
+  const sessionId = useMemo(() => new URLSearchParams(searchStr).get("session_id"), [searchStr]);
   const { syncCheckoutSession } = useBilling();
   const ranForSession = useRef<string | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
 
-    const stripSessionParam = () =>
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete("session_id");
-          return next;
-        },
-        { replace: true },
-      );
+    const stripSessionParam = () => {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("session_id");
+      window.history.replaceState({}, "", `${u.pathname}${u.search}`);
+    };
 
     const dedupeKey = `tashi_billing_sync_${sessionId}`;
     try {
@@ -146,7 +142,7 @@ function CheckoutSessionSync() {
     return () => {
       alive = false;
     };
-  }, [sessionId, syncCheckoutSession, setSearchParams]);
+  }, [sessionId, syncCheckoutSession]);
 
   return null;
 }

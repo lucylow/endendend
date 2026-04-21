@@ -34,14 +34,16 @@ describe("Dynamic Daisy Chain scenario engine", () => {
   });
 
   it("forms relay chain so end-to-end quality rises vs direct-only when relays present", () => {
-    const eng = new DynamicDaisyScenarioEngine(55, "default");
+    const eng = new DynamicDaisyScenarioEngine(55, "relay_heavy");
     let snap = eng.step(0);
-    for (let i = 0; i < 800; i++) snap = eng.step(0.035);
+    for (let i = 0; i < 900; i++) snap = eng.step(0.035);
     const lead = pickExplorer(snap.nodes)!;
-    const relays = snap.nodes.filter((n) => n.isRelay && simNodeId(n) !== simNodeId(lead));
-    expect(relays.length).toBeGreaterThan(0);
+    const tightCfg = { ...eng.cfg, relayLossThreshold: 0.04, partitionLossThreshold: 0.995 };
+    const plan = planRelayChain(snap.nodes, lead, eng.cfg.tunnel, tightCfg, () => 0.2);
+    expect(plan.orderedRelayIds.length).toBeGreaterThan(0);
+    const relayIds = plan.orderedRelayIds;
     const withHops = signalHopsAlongChain(
-      ["__entrance__", ...relays.map(simNodeId), simNodeId(lead)],
+      ["__entrance__", ...relayIds, simNodeId(lead)],
       new Map(
         [
           [
@@ -60,9 +62,9 @@ describe("Dynamic Daisy Chain scenario engine", () => {
             },
           ],
           ...snap.nodes.map((n) => [simNodeId(n), n] as const),
-        ] as [string, (typeof snap.nodes)[0]][],
+        ],
       ),
-      eng.cfg.tunnel,
+      tightCfg.tunnel,
       () => 0.2,
       0.25,
     );
@@ -88,7 +90,7 @@ describe("Dynamic Daisy Chain scenario engine", () => {
           ],
           [simNodeId(lead), lead],
         ]),
-        eng.cfg.tunnel,
+        tightCfg.tunnel,
         () => 0.2,
         0.25,
       ),

@@ -5,21 +5,21 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/robots/dji/protos/DJIMavic2Pro.proto"
 
 WorldInfo {
-  title "5-Drone Swarm Simulation"
+  title "Dynamic Daisy Chain — Production tunnel swarm (Track 2)"
   info [
-    "5-drone search-and-rescue swarm with P2P coordination"
-    "Depth-based positioning for tunnel/cave scenario"
-    "Blackout environment with network emulation"
+    "200 m depth axis (+Z), 10 m wide heterogeneous 5-drone daisy chain"
+    "Emitter: controllers/dynamic_daisy_emitter → ws://127.0.0.1:8765 (60 Hz) + motion targets JSON"
+    "Relay1 scripted fail @118s (emergent replan). Requires: pip install -r requirements-mockdata.txt"
   ]
   gravity 0 -9.81 0
   physics "ODE"
-  basicTimeStep 32
-  FPS 30
+  basicTimeStep 16
+  FPS 60
 }
 
 Viewpoint {
-  position 0 50 100
-  orientation 0.707 0.707 0 3.14159
+  position 28 38 105
+  orientation 0.05 0.99 0.12 3.48
 }
 
 TexturedBackground {
@@ -27,198 +27,243 @@ TexturedBackground {
 }
 
 RectangleArena {
-  floorSize 200 200
+  floorSize 80 240
   floorTileSize 10
-  wallHeight 5
-  wallThickness 0.2
-  wallColor 0.5 0.5 0.5
+  wallHeight 2
+  wallThickness 0.15
+  wallColor 0.35 0.35 0.38
 }
 
-# Lighting
 DirectionalLight {
-  direction 0.5 -1 0.5
-  intensity 1.5
+  direction 0.35 -1 0.25
+  intensity 1.35
   castShadows TRUE
 }
 
 PointLight {
-  location 0 30 0
-  intensity 0.8
-  radius 100
+  location 0 14 8
+  intensity 1.1
+  radius 140
 }
 
-# ============================================================================
-# 5-Drone Swarm Configuration
-# Depth-based positioning: drone_0 (explorer) deepest, drone_4 (standby) shallowest
-# ============================================================================
+# --- Procedural tunnel shell (10 m × 5 m × 200 m axis) ---
+Solid {
+  translation 0 2.5 12
+  name "tunnel_seg_0"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.25 0.26 0.28
+        roughness 0.9
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 38
+  name "tunnel_seg_1"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.22 0.22 0.24
+        roughness 0.92
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 64
+  name "tunnel_seg_2"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.2 0.2 0.22
+        roughness 0.93
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 90
+  name "tunnel_seg_3"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.18 0.18 0.2
+        roughness 0.94
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 116
+  name "tunnel_seg_4"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.16 0.16 0.18
+        roughness 0.95
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 142
+  name "tunnel_seg_5"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.14 0.14 0.16
+        roughness 0.95
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 168
+  name "tunnel_seg_6"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.12 0.12 0.14
+        roughness 0.96
+      }
+      geometry Box {
+        size 11.2 5.6 24
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
+Solid {
+  translation 0 2.5 190
+  name "tunnel_seg_7"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.1 0.12
+        roughness 0.96
+      }
+      geometry Box {
+        size 11.2 5.6 20
+      }
+    }
+  ]
+  boundingObject NULL
+  physics NULL
+}
 
-# Drone 0: Explorer (deepest, z=50)
-DJIMavic2Pro {
-  translation 0 2 50
+# Victim markers (deep procedural stand-ins)
+Solid {
+  translation 2.2 0.4 138
+  name "victim_a"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.95 0.32 0.12
+        emissiveColor 0.35 0.08 0.02
+      }
+      geometry Sphere {
+        radius 0.5
+      }
+    }
+  ]
+  physics NULL
+}
+Solid {
+  translation -2.4 0.4 172
+  name "victim_b"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.92 0.38 0.15
+        emissiveColor 0.32 0.1 0.04
+      }
+      geometry Sphere {
+        radius 0.48
+      }
+    }
+  ]
+  physics NULL
+}
+
+# --- Heterogeneous swarm (DEF for Supervisor telemetry) ---
+DEF DRONE0 DJIMavic2Pro {
+  translation 0 2.2 4
   rotation 0 1 0 0
   name "drone_0"
-  controller "swarm_controller"
-  controllerArgs ["--id" "drone_0" "--port" "9001"]
-  customData "drone_0"
+  controller "dynamic_daisy_drone"
+  controllerArgs ["--id", "drone_0", "--profile", "explorer"]
+  customData "explorer"
 }
-
-# Drone 1: Relay 1 (z=40)
-DJIMavic2Pro {
-  translation 10 2 40
-  rotation 0 1 0 0
+DEF DRONE1 DJIMavic2Pro {
+  translation 3 2.2 10
+  rotation 0 1 0 0.35
   name "drone_1"
-  controller "swarm_controller"
-  controllerArgs ["--id" "drone_1" "--port" "9002"]
-  customData "drone_1"
+  controller "dynamic_daisy_drone"
+  controllerArgs ["--id", "drone_1", "--profile", "relay"]
+  customData "relay"
 }
-
-# Drone 2: Relay 2 (z=30)
-DJIMavic2Pro {
-  translation -10 2 30
-  rotation 0 1 0 0
+DEF DRONE2 DJIMavic2Pro {
+  translation -3.2 2.2 14
+  rotation 0 1 0 -0.25
   name "drone_2"
-  controller "swarm_controller"
-  controllerArgs ["--id" "drone_2" "--port" "9003"]
-  customData "drone_2"
+  controller "dynamic_daisy_drone"
+  controllerArgs ["--id", "drone_2", "--profile", "indoor"]
+  customData "indoor"
 }
-
-# Drone 3: Standby 1 (z=20)
-DJIMavic2Pro {
-  translation 15 2 20
-  rotation 0 1 0 0
+DEF DRONE3 DJIMavic2Pro {
+  translation 4.2 2.2 8
+  rotation 0 1 0 0.5
   name "drone_3"
-  controller "swarm_controller"
-  controllerArgs ["--id" "drone_3" "--port" "9004"]
-  customData "drone_3"
+  controller "dynamic_daisy_drone"
+  controllerArgs ["--id", "drone_3", "--profile", "heavy"]
+  customData "heavy"
 }
-
-# Drone 4: Standby 2 (z=10, shallowest)
-DJIMavic2Pro {
-  translation -15 2 10
-  rotation 0 1 0 0
+DEF DRONE4 DJIMavic2Pro {
+  translation -4.0 2.2 6
+  rotation 0 1 0 -0.45
   name "drone_4"
-  controller "swarm_controller"
-  controllerArgs ["--id" "drone_4" "--port" "9005"]
-  customData "drone_4"
+  controller "dynamic_daisy_drone"
+  controllerArgs ["--id", "drone_4", "--profile", "backup"]
+  customData "backup"
 }
 
-# ============================================================================
-# Blackout Environment: Obstacles and Hazards
-# ============================================================================
-
-# Collapsed building structure
-Solid {
-  translation 50 0 50
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.3 0.3 0.3
-        metalness 0.5
-      }
-      geometry Box {
-        size 20 15 20
-      }
-    }
-  ]
-  name "collapsed_building"
-  boundingObject Box {
-    size 20 15 20
-  }
-  physics Physics {
-    density 2000
-  }
-}
-
-# Rubble pile
-Solid {
-  translation 60 0 60
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.4 0.4 0.4
-      }
-      geometry Box {
-        size 15 10 15
-      }
-    }
-  ]
-  name "rubble_pile"
-  boundingObject Box {
-    size 15 10 15
-  }
-  physics Physics {
-    density 1500
-  }
-}
-
-# Tunnel entrance (represents cave/tunnel scenario)
-Solid {
-  translation -50 0 50
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.2 0.2 0.2
-      }
-      geometry Box {
-        size 30 8 5
-      }
-    }
-  ]
-  name "tunnel_entrance"
-  boundingObject Box {
-    size 30 8 5
-  }
-  physics Physics {
-    density 2500
-  }
-}
-
-# Hazard zone marker (visual only)
-Solid {
-  translation 30 0.1 80
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 1 0 0
-        transparency 0.5
-      }
-      geometry Box {
-        size 40 0.2 40
-      }
-    }
-  ]
-  name "hazard_zone"
-}
-
-# Target location markers
-Solid {
-  translation 55 0.1 55
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0 1 0
-        transparency 0.5
-      }
-      geometry Sphere {
-        radius 2
-      }
-    }
-  ]
-  name "target_1"
-}
-
-Solid {
-  translation 65 0.1 65
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0 1 0
-        transparency 0.5
-      }
-      geometry Sphere {
-        radius 2
-      }
-    }
-  ]
-  name "target_2"
+Robot {
+  translation 0 0 -6
+  name "dynamic_daisy_emitter"
+  supervisor TRUE
+  controller "dynamic_daisy_emitter"
+  children []
 }

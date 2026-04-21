@@ -26,6 +26,8 @@ class DroneController(Node):
         self.declare_parameter('sim_mode', False)
         self.declare_parameter('ros_domain_id', 0)
         self.declare_parameter('enable_yasmin_thread', True)
+        self.declare_parameter('use_potential_cmd', False)
+        self.declare_parameter('use_safety_layer', False)
 
         drone_id = int(self.get_parameter('drone_id').value)
         self._depth = float(self.get_parameter('initial_depth').value)
@@ -46,7 +48,6 @@ class DroneController(Node):
         _dom = os.environ.get('ROS_DOMAIN_ID', str(int(self.get_parameter('ros_domain_id').value)))
         self.get_logger().debug(f'ROS_DOMAIN_ID={_dom}')
 
-        self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self._state_pub = self.create_publisher(DroneState, 'state', CRITICAL_QOS)
         self._heartbeat_pub = self.create_publisher(Heartbeat, '/swarm/heartbeat', HEARTBEAT_QOS)
         self.create_subscription(
@@ -55,6 +56,13 @@ class DroneController(Node):
             self._heartbeat_cb,
             HEARTBEAT_QOS,
         )
+
+        self._use_pf = bool(self.get_parameter('use_potential_cmd').value)
+        self._use_safety = bool(self.get_parameter('use_safety_layer').value)
+        cmd_topic = 'cmd_vel_raw' if self._use_safety else 'cmd_vel'
+        self._cmd_vel_pub = self.create_publisher(Twist, cmd_topic, 10)
+        if self._use_pf:
+            self.create_subscription(Twist, 'cmd_vel_swarm', self._pf_cmd_cb, 10)
 
         self.create_timer(0.2, self._tick_motion)
         self.create_timer(0.5, self._tick_publish)
@@ -66,7 +74,9 @@ class DroneController(Node):
             start_fsm_thread(self._sm, self._bb)
 
         self.get_logger().info(
-            f'Drone controller up ({self._drone_label}) sim_mode={self._sim_mode} p2p_port={self._p2p_port}'
+            f'Drone controller up ({self._drone_label}) sim_mode={self._sim_mode} '
+            f'p2p_port={self._p2p_port} use_potential_cmd={self._use_pf} '
+            f'use_safety_layer={self._use_safety} cmd_out={cmd_topic}'
         )
 
     def _heartbeat_cb(self, msg: Heartbeat) -> None:
@@ -81,7 +91,13 @@ class DroneController(Node):
             self._bb['peer_count'] = len(others)
         self._bb['depth'] = float(self._depth)
 
+    def _pf_cmd_cb(self, msg: Twist) -> None:
+        self._cmd_vel_pub.publish(msg)
+        self._depth += 0.01 * float(msg.linear.z)
+
     def _tick_motion(self) -> None:
+        if self._use_pf:
+            return
         t = self.get_clock().now().nanoseconds * 1e-9
         twist = Twist()
         twist.linear.z = 0.1 * math.sin(t + self._drone_id)

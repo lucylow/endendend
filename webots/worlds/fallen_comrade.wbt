@@ -1,0 +1,647 @@
+#VRML_SIM R2024a utf8
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "shared/swarm_robot.proto"
+WorldInfo {
+  title "Fallen Comrade — 5 sectors / RoverB failure demo"
+  info [
+    "Five ground rovers on a 100×100 m grid with colored sector overlays",
+"Deterministic obstacles from seed=42; supervisor streams snapshots"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 60
+}
+Viewpoint {
+  position 55 42 55
+  orientation 0.23 0.94 0.25 4.1
+}
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+RectangleArena {
+  floorSize 100.0 100.0
+  floorTileSize 5.0
+  wallHeight 3.0
+  wallThickness 0.15
+  wallColor 0.45 0.45 0.48
+}
+DirectionalLight {
+  direction 0.4 -1 0.3
+  intensity 1.2
+  castShadows TRUE
+}
+Solid {
+  translation -40.0 0.02 0.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.85 0.25 0.2, transparency 0.88 }
+      }
+      geometry Box { size 20.0 0.02 100.0 }
+    }
+  ]
+  name "SectorA"
+}
+Solid {
+  translation -20.0 0.02 0.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.25 0.55 0.85, transparency 0.88 }
+      }
+      geometry Box { size 20.0 0.02 100.0 }
+    }
+  ]
+  name "SectorB"
+}
+Solid {
+  translation 0.0 0.02 0.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.35 0.75 0.35, transparency 0.88 }
+      }
+      geometry Box { size 20.0 0.02 100.0 }
+    }
+  ]
+  name "SectorC"
+}
+Solid {
+  translation 20.0 0.02 0.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.85 0.65 0.2, transparency 0.88 }
+      }
+      geometry Box { size 20.0 0.02 100.0 }
+    }
+  ]
+  name "SectorD"
+}
+Solid {
+  translation 40.0 0.02 0.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.65 0.35 0.85, transparency 0.88 }
+      }
+      geometry Box { size 20.0 0.02 100.0 }
+    }
+  ]
+  name "SectorE"
+}
+Solid {
+  translation 37.5 0.25 12.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_00"
+}
+Solid {
+  translation -37.5 0.25 -47.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_01"
+}
+Solid {
+  translation 47.5 0.25 12.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_02"
+}
+Solid {
+  translation -17.5 0.25 47.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_03"
+}
+Solid {
+  translation -2.5 0.25 -47.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_04"
+}
+Solid {
+  translation 7.5 0.25 17.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_05"
+}
+Solid {
+  translation -47.5 0.25 22.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_06"
+}
+Solid {
+  translation -2.5 0.25 -42.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_07"
+}
+Solid {
+  translation 42.5 0.25 -12.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_08"
+}
+Solid {
+  translation -2.5 0.25 22.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_09"
+}
+Solid {
+  translation 22.5 0.25 -42.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_10"
+}
+Solid {
+  translation -27.5 0.25 -7.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_11"
+}
+Solid {
+  translation 12.5 0.25 22.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_12"
+}
+Solid {
+  translation 42.5 0.25 -42.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_13"
+}
+Solid {
+  translation -2.5 0.25 -7.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_14"
+}
+Solid {
+  translation -32.5 0.25 -37.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_15"
+}
+Solid {
+  translation -22.5 0.25 27.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_16"
+}
+Solid {
+  translation 17.5 0.25 -37.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_17"
+}
+Solid {
+  translation 27.5 0.25 -37.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_18"
+}
+Solid {
+  translation 47.5 0.25 -37.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_19"
+}
+Solid {
+  translation 2.5 0.25 -2.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_20"
+}
+Solid {
+  translation 12.5 0.25 -2.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_21"
+}
+Solid {
+  translation -7.5 0.25 -32.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_22"
+}
+Solid {
+  translation 42.5 0.25 -2.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_23"
+}
+Solid {
+  translation 7.5 0.25 32.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_24"
+}
+Solid {
+  translation 37.5 0.25 -32.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_25"
+}
+Solid {
+  translation -2.5 0.25 2.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_26"
+}
+Solid {
+  translation 42.5 0.25 32.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_27"
+}
+Solid {
+  translation 37.5 0.25 2.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_28"
+}
+Solid {
+  translation -12.5 0.25 37.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_29"
+}
+Solid {
+  translation 22.5 0.25 -27.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_30"
+}
+Solid {
+  translation 37.5 0.25 -27.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_31"
+}
+Solid {
+  translation 22.5 0.25 37.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_32"
+}
+Solid {
+  translation 47.5 0.25 -27.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_33"
+}
+Solid {
+  translation -7.5 0.25 7.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_34"
+}
+Solid {
+  translation 2.5 0.25 7.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_35"
+}
+Solid {
+  translation -27.5 0.25 42.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_36"
+}
+Solid {
+  translation -12.5 0.25 42.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_37"
+}
+Solid {
+  translation -47.5 0.25 12.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_38"
+}
+Solid {
+  translation -32.5 0.25 12.5
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "Obstacle_39"
+}
+DEF RoverA SwarmRobot {
+  translation -40.0 0.2 0.0
+  name "RoverA"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "fallen_comrade"
+  "--id"
+  "RoverA"
+  ]
+}
+DEF RoverB SwarmRobot {
+  translation -20.0 0.2 0.0
+  name "RoverB"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "fallen_comrade"
+  "--id"
+  "RoverB"
+  ]
+}
+DEF RoverC SwarmRobot {
+  translation 0.0 0.2 0.0
+  name "RoverC"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "fallen_comrade"
+  "--id"
+  "RoverC"
+  ]
+}
+DEF RoverD SwarmRobot {
+  translation 20.0 0.2 0.0
+  name "RoverD"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "fallen_comrade"
+  "--id"
+  "RoverD"
+  ]
+}
+DEF RoverE SwarmRobot {
+  translation 40.0 0.2 0.0
+  name "RoverE"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "fallen_comrade"
+  "--id"
+  "RoverE"
+  ]
+}
+Robot {
+  translation 0 0.12 0
+  name "scenario_emitter"
+  controller "scenario_supervisor"
+  controllerArgs [
+  "--scenario"
+  "fallen_comrade"
+  "--seed"
+  "42"
+  ]
+  supervisor TRUE
+  children []
+}

@@ -1,0 +1,46 @@
+#VRML_SIM R2024a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+
+WorldInfo {
+  title "Blind Handoff — Track 2 mock telemetry (200m field, air + ground)"
+  info [
+    "BlindHandoffEngine + ws://127.0.0.1:8765 for aerial auction + rover rescue viz"
+    "Requires: pip install -r requirements-mockdata.txt"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 60
+}
+
+Viewpoint {
+  position 120 95 120
+  orientation 0.25 0.92 0.3 4.0
+}
+
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+
+RectangleArena {
+  floorSize 200 200
+  floorTileSize 10
+  wallHeight 5
+  wallThickness 0.2
+  wallColor 0.48 0.5 0.52
+}
+
+DirectionalLight {
+  direction 0.35 -1 0.25
+  intensity 1.15
+  castShadows TRUE
+}
+
+Robot {
+  translation 0 0.12 0
+  name "blind_handoff_emitter"
+  controller "blind_handoff_emitter"
+  children []
+}

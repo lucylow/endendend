@@ -1,0 +1,323 @@
+#VRML_SIM R2024a utf8
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "shared/swarm_robot.proto"
+WorldInfo {
+  title "Open Track — general swarm coordination"
+  info [
+    "Configurable-sized arena with sparse obstacles; supervisor publishes snapshots",
+"Seed 42"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 60
+}
+Viewpoint {
+  position 95 72 95
+  orientation 0.25 0.92 0.28 4.1
+}
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+RectangleArena {
+  floorSize 180.0 180.0
+  floorTileSize 9.0
+  wallHeight 3.5
+  wallThickness 0.15
+  wallColor 0.42 0.44 0.48
+}
+DirectionalLight {
+  direction 0.4 -1 0.3
+  intensity 1.2
+  castShadows TRUE
+}
+Solid {
+  translation -35.0 0.25 -15.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_00"
+}
+Solid {
+  translation 5.0 0.25 55.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_01"
+}
+Solid {
+  translation -5.0 0.25 -15.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_02"
+}
+Solid {
+  translation 25.0 0.25 -85.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_03"
+}
+Solid {
+  translation -85.0 0.25 -5.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_04"
+}
+Solid {
+  translation -65.0 0.25 -5.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_05"
+}
+Solid {
+  translation -75.0 0.25 -75.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_06"
+}
+Solid {
+  translation 45.0 0.25 -5.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_07"
+}
+Solid {
+  translation 65.0 0.25 -75.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_08"
+}
+Solid {
+  translation -45.0 0.25 5.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_09"
+}
+Solid {
+  translation -65.0 0.25 -65.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_10"
+}
+Solid {
+  translation -5.0 0.25 75.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_11"
+}
+Solid {
+  translation 15.0 0.25 -65.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_12"
+}
+Solid {
+  translation -65.0 0.25 15.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_13"
+}
+Solid {
+  translation -35.0 0.25 -45.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_14"
+}
+Solid {
+  translation -15.0 0.25 25.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_15"
+}
+Solid {
+  translation 45.0 0.25 25.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_16"
+}
+Solid {
+  translation 55.0 0.25 35.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_17"
+}
+Solid {
+  translation 25.0 0.25 45.0
+  children [
+    Shape {
+      appearance Appearance {
+        material Material { diffuseColor 0.45 0.1 0.1 }
+      }
+      geometry Box { size 2.0 0.5 2.0 }
+    }
+  ]
+  name "OpenObstacle_18"
+}
+DEF RoverA SwarmRobot {
+  translation -55.0 0.2 -55.0
+  name "RoverA"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "open_track"
+  "--id"
+  "RoverA"
+  ]
+}
+DEF RoverB SwarmRobot {
+  translation 55.0 0.2 -55.0
+  name "RoverB"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "open_track"
+  "--id"
+  "RoverB"
+  ]
+}
+DEF RoverC SwarmRobot {
+  translation -55.0 0.2 55.0
+  name "RoverC"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "open_track"
+  "--id"
+  "RoverC"
+  ]
+}
+DEF RoverD SwarmRobot {
+  translation 55.0 0.2 55.0
+  name "RoverD"
+  type "ground"
+  controller "rover_controller"
+  controllerArgs [
+  "--scenario"
+  "open_track"
+  "--id"
+  "RoverD"
+  ]
+}
+Robot {
+  translation 0 0.12 0
+  name "scenario_emitter"
+  controller "scenario_supervisor"
+  controllerArgs [
+  "--scenario"
+  "open_track"
+  "--seed"
+  "42"
+  ]
+  supervisor TRUE
+  children []
+}

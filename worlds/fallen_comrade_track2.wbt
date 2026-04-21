@@ -1,0 +1,46 @@
+#VRML_SIM R2024a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2024a/projects/objects/floors/protos/RectangleArena.proto"
+
+WorldInfo {
+  title "Fallen Comrade — Track 2 mock telemetry (100m grid)"
+  info [
+    "MockDataEngine + ws://127.0.0.1:8765 for the Vite Track 2 dashboard"
+    "Requires: pip install -r requirements-mockdata.txt"
+  ]
+  gravity 0 -9.81 0
+  physics "ODE"
+  basicTimeStep 32
+  FPS 60
+}
+
+Viewpoint {
+  position 55 42 55
+  orientation 0.23 0.94 0.25 4.1
+}
+
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+
+RectangleArena {
+  floorSize 100 100
+  floorTileSize 5
+  wallHeight 3
+  wallThickness 0.15
+  wallColor 0.45 0.45 0.48
+}
+
+DirectionalLight {
+  direction 0.4 -1 0.3
+  intensity 1.2
+  castShadows TRUE
+}
+
+Robot {
+  translation 0 0.15 0
+  name "fallen_comrade_emitter"
+  controller "fallen_comrade_controller"
+  children []
+}

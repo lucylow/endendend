@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import RelayChainDemo from "@/components/RelayChainDemo";
 import NetworkDegradationTable from "@/components/NetworkDegradationTable";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";

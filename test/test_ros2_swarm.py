@@ -24,5 +24,7 @@ def test_qos_profiles_importable() -> None:
 
 def test_msgs_path_exists() -> None:
     msgs = _ws_src() / 'endendend_msgs' / 'msg'
+    srv = _ws_src() / 'endendend_msgs' / 'srv'
     assert (msgs / 'DroneState.msg').is_file()
     assert (msgs / 'SwarmGlobalState.msg').is_file()
+    assert (srv / 'InjectFailure.srv').is_file()

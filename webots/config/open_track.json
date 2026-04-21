@@ -1,0 +1,19 @@
+{
+  "agents": [
+    "RoverA",
+    "RoverB",
+    "RoverC",
+    "RoverD"
+  ],
+  "scenario": "open_track",
+  "seed": 42,
+  "size": [
+    180.0,
+    180.0
+  ],
+  "victims": [],
+  "world_file": "open_track.wbt",
+  "zones": [
+    "MissionArea"
+  ]
+}

@@ -1,6 +1,6 @@
 import { motion, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import { lazy, Suspense, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   CloudOff,

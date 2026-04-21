@@ -1,0 +1,29 @@
+{
+  "agents": [
+    "RoverA",
+    "RoverB",
+    "RoverC",
+    "RoverD"
+  ],
+  "connectivity": {
+    "packet_loss_spike_s": [
+      5.0,
+      22.0,
+      40.0
+    ]
+  },
+  "scenario": "tunnel_blackout",
+  "seed": 42,
+  "size": [
+    16.0,
+    126.0
+  ],
+  "victims": [],
+  "world_file": "tunnel_blackout.wbt",
+  "zones": [
+    "RelayZone_RoverA",
+    "RelayZone_RoverB",
+    "RelayZone_RoverC",
+    "RelayZone_RoverD"
+  ]
+}

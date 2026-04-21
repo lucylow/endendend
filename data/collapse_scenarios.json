@@ -1,0 +1,12 @@
+[
+  {
+    "id": "multi_collapse",
+    "collapse_points_m": [44, 92, 156],
+    "notes": "Progressive debris — relay anchors shift emergently"
+  },
+  {
+    "id": "ingress_clean",
+    "collapse_points_m": [120, 165],
+    "notes": "Deep shadowing only"
+  }
+]

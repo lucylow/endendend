@@ -1,0 +1,72 @@
+#VRML_SIM R2024a utf8
+# Instanced Track-2 swarm drone: ROS-facing controller args + downward camera for Webots + YOLO bring-up.
+# Flight stack: pair with ``controllers/swarm_controller`` (Vertex / chain logic in ``swarm/webots_controller.py``).
+
+PROTO SwarmDrone [
+  field SFString droneId "drone0"
+  field SFVec3f translation 0 2 0
+  field SFRotation rotation 0 1 0 0
+  field MFString controllerArgs ["--id", "drone0", "--ros2-vision"]
+]
+{
+  Robot {
+    translation IS translation
+    rotation IS rotation
+    name IS droneId
+    controller "swarm_controller"
+    controllerArgs IS controllerArgs
+    customData IS droneId
+    children [
+      DEF DRONE_CHASSIS Solid {
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.12 0.12 0.14
+              roughness 0.55
+              metalness 0.35
+            }
+            geometry Cylinder {
+              radius 0.28
+              height 0.06
+            }
+          }
+        ]
+        boundingObject Cylinder {
+          radius 0.28
+          height 0.06
+        }
+        physics Physics {
+          density 180
+        }
+      }
+      Camera {
+        name "camera"
+        translation 0 0.05 -0.18
+        rotation 1 0 0 -1.5708
+        fieldOfView 1.047
+        width 640
+        height 480
+        near 0.08
+        far 55
+      }
+      GPS {
+        name "gps"
+      }
+      InertialUnit {
+        name "imu"
+      }
+      DistanceSensor {
+        name "proximity_sensor"
+        lookupTable [
+          0 1000 0
+          2 0 0
+        ]
+        maxRange 2
+      }
+      LED {
+        name "status_led"
+        color 0 1 0
+      }
+    ]
+  }
+}

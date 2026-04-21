@@ -1,0 +1,1 @@
+RELAY_HOLD_GAIN = 0.85

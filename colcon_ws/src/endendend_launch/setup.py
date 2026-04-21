@@ -8,11 +8,14 @@ package_name = 'endendend_launch'
 
 _here = Path(__file__).resolve().parent
 _world_dir = _here.parents[3] / 'worlds'
-_world_files = [
-    str(_world_dir / n)
-    for n in ('blackout_swarm.wbt', 'blackout_tunnel.wbt')
-    if (_world_dir / n).is_file()
-]
+_world_basenames = (
+    'blackout_swarm.wbt',
+    'blackout_tunnel.wbt',
+    'victim.proto',
+    'swarm_drone.proto',
+    'swarm_robot.proto',
+)
+_world_files = [str(_world_dir / n) for n in _world_basenames if (_world_dir / n).is_file()]
 _world_install: list[tuple[str, list[str]]] = []
 if _world_files:
     _world_install = [(os.path.join('share', package_name, 'worlds'), _world_files)]

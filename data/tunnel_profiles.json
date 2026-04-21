@@ -1,0 +1,17 @@
+{
+  "default": {
+    "length_m": 200,
+    "width_m": 10,
+    "height_m": 5,
+    "entrance_gps": "perfect",
+    "mid_loss_hint": 0.5,
+    "deep_loss_hint": 0.9
+  },
+  "track2_demo": {
+    "length_m": 200,
+    "width_m": 10,
+    "relay_loss_threshold": 0.42,
+    "failure_relay_id": "drone_1",
+    "failure_time_s": 120
+  }
+}

@@ -23,6 +23,10 @@ from launch_ros.parameter_descriptions import ParameterValue
 def _drone_fleet(context, *args, **kwargs):
     num = int(LaunchConfiguration('num_drones').perform(context))
     num = max(1, min(num, 10))
+    use_r2s = LaunchConfiguration('use_ros2swarm').perform(context).lower() in ('1', 'true', 'yes')
+    pf_flag = 'true' if use_r2s else 'false'
+    safety_flag = LaunchConfiguration('use_safety_layer').perform(context).lower() in ('1', 'true', 'yes')
+    safety_arg = 'true' if safety_flag else 'false'
     elaunch = get_package_share_directory('endendend_launch')
     vshare = get_package_share_directory('endendend_vision')
     yasmin_py = os.path.join(elaunch, 'launch', 'yasmin_fsm_launch.py')
@@ -41,6 +45,8 @@ def _drone_fleet(context, *args, **kwargs):
                             'vertex_port': str(19790 + i),
                             'heartbeat_interval': LaunchConfiguration('heartbeat_interval').perform(context),
                             'election_timeout': LaunchConfiguration('election_timeout').perform(context),
+                            'use_potential_cmd': pf_flag,
+                            'use_safety_layer': safety_arg,
                         }.items(),
                     ),
                     IncludeLaunchDescription(
@@ -58,7 +64,12 @@ def _drone_fleet(context, *args, **kwargs):
 
 def generate_launch_description() -> LaunchDescription:
     pkg = get_package_share_directory('endendend_launch')
+    vshare = get_package_share_directory('endendend_vision')
     default_world = os.path.join(pkg, 'worlds', 'blackout_tunnel.wbt')
+    default_onnx = os.path.join(vshare, 'models', 'best.onnx')
+    safety_py = os.path.join(
+        get_package_share_directory('endendend_safety'), 'launch', 'safety_layer_launch.py'
+    )
     wb_py = os.path.join(pkg, 'launch', 'webots_blackout_launch.py')
     vb_py = os.path.join(pkg, 'launch', 'vertex_bridge_launch.py')
     rviz_cfg = os.path.join(pkg, 'config', 'track2_swarm.rviz')
@@ -68,9 +79,29 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument('world_file', default_value=default_world),
             DeclareLaunchArgument('launch_webots', default_value='false'),
             DeclareLaunchArgument('enable_rviz', default_value='false'),
-            DeclareLaunchArgument('onnx_model_path', default_value=''),
+            DeclareLaunchArgument('onnx_model_path', default_value=default_onnx),
             DeclareLaunchArgument('heartbeat_interval', default_value='2.0'),
             DeclareLaunchArgument('election_timeout', default_value='5.0'),
+            DeclareLaunchArgument(
+                'use_ros2swarm',
+                default_value='true',
+                description='Enable ROS2swarm behaviors + potential-field cmd_vel_swarm fusion',
+            ),
+            DeclareLaunchArgument(
+                'use_safety_layer',
+                default_value='true',
+                description='Hardware safety stack (watchdog mux, geofence, BMS, collision, swarm E-stop)',
+            ),
+            DeclareLaunchArgument(
+                'safety_use_hardware_mock',
+                default_value='true',
+                description='Simulated battery/temperature per drone (endendend_safety)',
+            ),
+            DeclareLaunchArgument(
+                'safety_enable_lidar',
+                default_value='false',
+                description='Subscribe to namespaced scan for collision_avoid',
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(wb_py),
                 launch_arguments={
@@ -79,6 +110,15 @@ def generate_launch_description() -> LaunchDescription:
                 }.items(),
             ),
             IncludeLaunchDescription(PythonLaunchDescriptionSource(vb_py)),
+            Node(
+                package='endendend_vision',
+                executable='victim_vertex_fanout',
+                name='victim_vertex_fanout',
+                parameters=[
+                    {'num_drones': ParameterValue(LaunchConfiguration('num_drones'), value_type=int)}
+                ],
+                output='screen',
+            ),
             Node(
                 package='endendend_core',
                 executable='swarm_state_aggregator',
@@ -90,6 +130,29 @@ def generate_launch_description() -> LaunchDescription:
                     }
                 ],
                 output='screen',
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(
+                        get_package_share_directory('endendend_ros2swarm'),
+                        'launch',
+                        'swarm_behaviors_launch.py',
+                    )
+                ),
+                launch_arguments={
+                    'num_drones': LaunchConfiguration('num_drones'),
+                    'enable_potential_fields': LaunchConfiguration('use_ros2swarm'),
+                }.items(),
+                condition=IfCondition(LaunchConfiguration('use_ros2swarm')),
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(safety_py),
+                launch_arguments={
+                    'num_drones': LaunchConfiguration('num_drones'),
+                    'use_hardware_mock': LaunchConfiguration('safety_use_hardware_mock'),
+                    'enable_lidar': LaunchConfiguration('safety_enable_lidar'),
+                }.items(),
+                condition=IfCondition(LaunchConfiguration('use_safety_layer')),
             ),
             Node(
                 package='endendend_supervisor',

@@ -14,6 +14,20 @@ colcon build --symlink-install --packages-up-to endendend_launch
 source install/setup.bash
 ```
 
+## Track 2 (Vertex blackout swarm)
+
+```bash
+ros2 launch endendend_launch swarm_track2_launch.py num_drones:=5 enable_rviz:=false
+ros2 launch endendend_launch drone_template_launch.py drone_id:=2
+ros2 service call /supervisor/inject_failure endendend_msgs/srv/InjectFailure "{drone_id: 1}"
+docker compose -f docker-compose-track2.yml build ros2-vertex-swarm
+docker compose -f docker-compose-track2.yml up ros2-vertex-swarm
+```
+
+Topics of interest: `/swarm/global_state`, `/swarm/vertex_broadcast`, `/swarm/relay_chain`, `/swarm/peer_poses`, `/swarm/chain_order`, `/vertex/role_bids`, `/supervisor/network_loss`, per-drone `.../yasmin_states`, `.../victim_detections`.
+
+**ROS2swarm-style package** `endendend_ros2swarm`: potential fields (`cmd_vel_swarm` → `drone_controller` when `use_ros2swarm:=true`), relay chain coordinator, victim handoff, sector realloc. Disable with `use_ros2swarm:=false` on `swarm_track2_launch.py`.
+
 ## Run (installed package)
 
 ```bash

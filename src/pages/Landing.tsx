@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   ArrowRight,
   Menu,
@@ -47,9 +47,11 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 function LandingNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const location = useLocation();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
     document.addEventListener("keydown", handler);

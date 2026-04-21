@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, LayoutDashboard, LifeBuoy, Radio } from "lucide-react";
 import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 import { Button } from "@/components/ui/button";

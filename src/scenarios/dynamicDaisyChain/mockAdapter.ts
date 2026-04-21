@@ -85,6 +85,5 @@ export function createMockAdapter(seed: number, variant: ScenarioVariantId["id"]
     reset(nextSeed: number, nextVariant: ScenarioVariantId["id"] = "default") {
       engine.reset(nextSeed, nextVariant);
     },
-    getEngine: () => engine,
   };
 }

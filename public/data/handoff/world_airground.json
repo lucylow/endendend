@@ -1,0 +1,38 @@
+{
+  "schema": "endendend.blind_handoff.v1",
+  "bounds": [-100, 100, -100, 100],
+  "elevation": [
+    [0, 0.1, 0.2, 0.1, 0],
+    [0.1, 0.3, 0.4, 0.3, 0.1],
+    [0.2, 0.4, 0.6, 0.4, 0.2],
+    [0.1, 0.3, 0.4, 0.3, 0.1],
+    [0, 0.1, 0.2, 0.1, 0]
+  ],
+  "victims": [
+    {"id": "victim_1", "pos": [18.5, 0.72, -42.3], "type": "human"},
+    {"id": "victim_2", "pos": [-31.2, 0.68, 55.8], "type": "human"},
+    {"id": "victim_3", "pos": [62.0, 0.75, 12.4], "type": "human"},
+    {"id": "victim_4", "pos": [-8.0, 0.7, -68.0], "type": "human"},
+    {"id": "victim_5", "pos": [44.0, 0.71, -58.0], "type": "human"},
+    {"id": "victim_6", "pos": [-55.0, 0.69, 22.0], "type": "human"}
+  ],
+  "aerial_start": [-80, 20, -80],
+  "ground_starts": [[-50, 0.35, 0], [0, 0.35, -50], [48, 0.35, 36]],
+  "rover_meta": [
+    {"id": "RoverHeavy1", "capacity": "heavy"},
+    {"id": "RoverLight2", "capacity": "light"},
+    {"id": "RoverLight3", "capacity": "light"}
+  ],
+  "sweep_path": [[-86, 20, -86], [86, 20, -86], [86, 20, -72], [-86, 20, -72]],
+  "aerial_speed_m_s": 8.0,
+  "ground_speed_m_s": 2.5,
+  "timeline": {
+    "detect_s": 15.0,
+    "auction_start_s": 16.0,
+    "winner_s": 18.0,
+    "rtb_done_s": 20.0,
+    "rescue_arrival_s": 30.0,
+    "cycle_reset_s": 35.0
+  },
+  "seed": 42
+}
