@@ -1,14 +1,19 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Line } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Html, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { VertexSwarmView } from "@/backend/vertex/swarm-simulator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useMapOverlayStore } from "@/store/mapOverlayStore";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { parseCellKey } from "@/swarm/sharedMap";
 
 const EXPLORER_TRAIL_MAX = 20;
 const PULSE_MS = 1000;
+const MAX_DRONE_INSTANCES = 24;
+const MAX_CELL_INSTANCES = 900;
 
 type Pulse = { id: string; x: number; z: number; start: number };
 
@@ -18,7 +23,62 @@ function posFor(nodeId: string, nodes: VertexSwarmView["nodes"]): THREE.Vector3 
   return new THREE.Vector3(n.position.x * 0.08, n.position.y * 0.08 + 0.35, n.position.z * 0.08);
 }
 
-const RelayGlowLines = memo(function RelayGlowLines({ view }: { view: VertexSwarmView }) {
+const heatShader = {
+  uniforms: {
+    uTime: { value: 0 },
+    uOpacity: { value: 0.5 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform float uTime;
+    uniform float uOpacity;
+    void main() {
+      vec2 p = vUv * 2.0 - 1.0;
+      vec2 firePos = vec2(sin(uTime * 0.55) * 0.55, cos(uTime * 0.42) * 0.48);
+      float d = length(p - firePos);
+      float heat = smoothstep(0.82, 0.0, d);
+      vec3 c = mix(vec3(0.12, 0.03, 0.02), vec3(1.0, 0.32, 0.06), heat);
+      float a = uOpacity * (0.18 + 0.72 * heat);
+      gl_FragColor = vec4(c, a);
+    }
+  `,
+};
+
+const waterShader = {
+  uniforms: {
+    uTime: { value: 0 },
+    uOpacity: { value: 0.35 },
+    uLevel: { value: 0.35 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform float uTime;
+    uniform float uOpacity;
+    uniform float uLevel;
+    void main() {
+      float w = sin((vUv.x + vUv.y) * 10.0 + uTime * 1.8) * 0.04;
+      float a = uOpacity * (0.28 + w + uLevel * 0.15);
+      vec3 col = vec3(0.04, 0.45, 0.82);
+      gl_FragColor = vec4(col, clamp(a, 0.05, 0.92));
+    }
+  `,
+};
+
+function RelayAnimatedLines({ view }: { view: VertexSwarmView }) {
   const chains = view.graph.relayChains ?? [];
   const segs: THREE.Vector3[][] = [];
   for (const chain of chains) {
@@ -39,7 +99,7 @@ const RelayGlowLines = memo(function RelayGlowLines({ view }: { view: VertexSwar
             color="#22d3ee"
             lineWidth={2}
             transparent
-            opacity={0.35}
+            opacity={0.38}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
           />
@@ -56,9 +116,9 @@ const RelayGlowLines = memo(function RelayGlowLines({ view }: { view: VertexSwar
       ))}
     </group>
   );
-});
+}
 
-const PulseRings = memo(function PulseRings({ pulses }: { pulses: Pulse[] }) {
+const PulseRings = memo(function PulseRings({ pulses, reducedMotion }: { pulses: Pulse[]; reducedMotion: boolean }) {
   return (
     <group>
       {pulses.map((p) => {
@@ -67,7 +127,7 @@ const PulseRings = memo(function PulseRings({ pulses }: { pulses: Pulse[] }) {
         const s = 0.4 + age * 2.2;
         const op = (1 - age) * 0.55;
         return (
-          <mesh key={p.id} position={[p.x, 0.05, p.z]} rotation={[-Math.PI / 2, 0, age * 4]}>
+          <mesh key={p.id} position={[p.x, 0.05, p.z]} rotation={[-Math.PI / 2, 0, reducedMotion ? 0 : age * 4]}>
             <ringGeometry args={[s, s + 0.12, 28]} />
             <meshBasicMaterial color="#fb7185" transparent opacity={op} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
@@ -77,88 +137,326 @@ const PulseRings = memo(function PulseRings({ pulses }: { pulses: Pulse[] }) {
   );
 });
 
-const WildfireHeat = memo(function WildfireHeat({ intensity01 }: { intensity01: number }) {
-  const ref = useRef<THREE.Mesh>(null);
+function InstancedDrones({
+  view,
+  selectedId,
+  reducedMotion,
+}: {
+  view: VertexSwarmView;
+  selectedId: string | null;
+  reducedMotion: boolean;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const color = useMemo(() => new THREE.Color(), []);
+  const { camera } = useThree();
+  const pulseRef = useRef(0);
+
   useFrame((st) => {
-    if (!ref.current) return;
-    const m = ref.current.material as THREE.MeshBasicMaterial;
-    m.opacity = 0.12 + intensity01 * 0.35 + Math.sin(st.clock.elapsedTime * 1.4) * 0.04;
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    pulseRef.current += st.clock.getDelta();
+    let i = 0;
+    const camDist = camera.position.length();
+    const lodFar = camDist > 19;
+    for (const n of view.nodes) {
+      if (i >= MAX_DRONE_INSTANCES) break;
+      const p = posFor(n.nodeId, view.nodes);
+      if (!p) continue;
+      dummy.position.copy(p);
+      const sel = selectedId === n.nodeId;
+      const pulse = sel && !reducedMotion ? 1 + Math.sin(pulseRef.current * 6) * 0.12 : 1;
+      const base = lodFar ? 0.11 : n.offline ? 0.1 : 0.16;
+      dummy.scale.setScalar(base * pulse);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      if (n.role === "explorer") color.set("#38bdf8");
+      else if (n.role === "relay") color.set("#a78bfa");
+      else color.set("#34d399");
+      mesh.setColorAt(i, color);
+      i++;
+    }
+    mesh.count = i;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
+
+  const geom = useMemo(() => new THREE.SphereGeometry(1, 14, 14), []);
+  const mat = useMemo(
+    () =>
+      new THREE.MeshLambertMaterial({
+        vertexColors: true,
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      geom.dispose();
+      mat.dispose();
+    };
+  }, [geom, mat]);
+
+  return <instancedMesh ref={meshRef} args={[geom, mat, MAX_DRONE_INSTANCES]} />;
+}
+
+function ExploredCellOverlay({ view }: { view: VertexSwarmView }) {
+  const show = useMapOverlayStore((s) => s.showExploredGrid);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const mat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: "#38bdf8",
+        transparent: true,
+        opacity: 0.14,
+        depthWrite: false,
+      }),
+    [],
+  );
+  const geom = useMemo(() => new THREE.BoxGeometry(0.22, 0.04, 0.22), []);
+
+  const samples = useMemo(() => {
+    const out: { gx: number; gz: number }[] = [];
+    for (const [k, meta] of Object.entries(view.sharedMap.cells)) {
+      if (
+        meta.state === "seen" ||
+        meta.state === "searched" ||
+        meta.state === "safe" ||
+        meta.state === "target"
+      ) {
+        const p = parseCellKey(k);
+        if (p) out.push(p);
+      }
+    }
+    const step = Math.max(1, Math.ceil(out.length / MAX_CELL_INSTANCES));
+    return out.filter((_, idx) => idx % step === 0).slice(0, MAX_CELL_INSTANCES);
+  }, [view.sharedMap.cells]);
+
+  useFrame(() => {
+    const mesh = meshRef.current;
+    if (!mesh || !show) return;
+    let i = 0;
+    for (const c of samples) {
+      if (i >= MAX_CELL_INSTANCES) break;
+      dummy.position.set(c.gx * 0.22, 0.06, c.gz * 0.22);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i++, dummy.matrix);
+    }
+    mesh.count = i;
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  useEffect(() => {
+    return () => {
+      geom.dispose();
+      mat.dispose();
+    };
+  }, [geom, mat]);
+
+  if (!show) return null;
+  return <instancedMesh ref={meshRef} args={[geom, mat, MAX_CELL_INSTANCES]} />;
+}
+
+/** Translucent operational volume + edge highlight. */
+function GeofenceGroup({ visible }: { visible: boolean }) {
+  const geom = useMemo(() => new THREE.BoxGeometry(22, 3.5, 22), []);
+  const fillMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#0ea5e9", transparent: true, opacity: 0.04, depthWrite: false }),
+    [],
+  );
+  const edgeGeom = useMemo(() => new THREE.EdgesGeometry(geom), [geom]);
+  const edgeMat = useMemo(
+    () => new THREE.LineBasicMaterial({ color: "#38bdf8", transparent: true, opacity: 0.45 }),
+    [],
+  );
+  useEffect(() => {
+    return () => {
+      geom.dispose();
+      fillMat.dispose();
+      edgeGeom.dispose();
+      edgeMat.dispose();
+    };
+  }, [geom, fillMat, edgeGeom, edgeMat]);
+  if (!visible) return null;
   return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+    <group position={[0, 1.2, 0]}>
+      <mesh geometry={geom} material={fillMat} />
+      <lineSegments geometry={edgeGeom} material={edgeMat} />
+    </group>
+  );
+}
+
+function WildfireHeatPlane({ scenario }: { scenario: string }) {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+  const uniforms = useMemo(() => THREE.UniformsUtils.clone(heatShader.uniforms), []);
+  useFrame((st) => {
+    const m = matRef.current;
+    if (!m) return;
+    m.uniforms.uTime.value = st.clock.elapsedTime;
+    m.uniforms.uOpacity.value = useMapOverlayStore.getState().thermalOpacity01;
+  });
+  if (scenario !== "wildfire") return null;
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
       <planeGeometry args={[14, 14]} />
-      <meshBasicMaterial color="#7f1d1d" transparent opacity={0.22} depthWrite={false} />
+      <shaderMaterial
+        ref={matRef}
+        transparent
+        depthWrite={false}
+        vertexShader={heatShader.vertexShader}
+        fragmentShader={heatShader.fragmentShader}
+        uniforms={uniforms}
+      />
     </mesh>
   );
-});
+}
 
-const FloodPlane = memo(function FloodPlane({ level01 }: { level01: number }) {
-  const y = 0.15 + level01 * 1.1;
+function FloodWaterPlane({ scenario, view }: { scenario: string; view: VertexSwarmView }) {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+  const uniforms = useMemo(() => THREE.UniformsUtils.clone(waterShader.uniforms), []);
+  useFrame((st) => {
+    const m = matRef.current;
+    if (!m) return;
+    m.uniforms.uTime.value = st.clock.elapsedTime;
+    const stStore = useMapOverlayStore.getState();
+    m.uniforms.uOpacity.value = stStore.waterOpacity01;
+    const wave = Math.sin(view.tickCount * 0.08) * 0.5 + 0.5;
+    m.uniforms.uLevel.value = wave * 0.85 + stStore.waterLevelBoost01 * 0.4;
+  });
+  if (scenario !== "flood_rescue") return null;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, 0]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.18, 0]}>
       <planeGeometry args={[16, 16]} />
-      <meshStandardMaterial color="#0ea5e9" transparent opacity={0.28} roughness={0.9} metalness={0.05} depthWrite={false} />
+      <shaderMaterial
+        ref={matRef}
+        transparent
+        depthWrite={false}
+        vertexShader={waterShader.vertexShader}
+        fragmentShader={waterShader.fragmentShader}
+        uniforms={uniforms}
+      />
     </mesh>
   );
-});
+}
 
-const GasContour = memo(function GasContour({ reading01 }: { reading01: number }) {
-  const rings = [0.6, 1.1, 1.6, 2.1];
+function HazmatContourField({ scenario, view }: { scenario: string; view: VertexSwarmView }) {
+  const intensity = useMapOverlayStore((s) => s.gasContourIntensity01);
+  const samples = useMemo(() => {
+    const pts: { x: number; z: number; color: string }[] = [];
+    let i = 0;
+    for (let gx = -8; gx <= 8; gx += 2) {
+      for (let gz = -8; gz <= 8; gz += 2) {
+        const tel = view.telemetry[i % Math.max(1, view.telemetry.length)];
+        const stress = tel?.sensorConfidence01 ?? 0.5;
+        const color = stress > 0.72 ? "#ef4444" : stress > 0.45 ? "#eab308" : "#22c55e";
+        pts.push({ x: gx * 0.55, z: gz * 0.55, color });
+        i++;
+      }
+    }
+    return pts;
+  }, [view.telemetry]);
+
+  if (scenario !== "hazmat") return null;
+  const scale = 0.75 + intensity * 0.55;
   return (
-    <group position={[2, 0.08, -1]}>
-      {rings.map((r, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[r, r + 0.08, 40]} />
-          <meshBasicMaterial
-            color={i % 2 ? "#ea580c" : "#dc2626"}
-            transparent
-            opacity={0.08 + reading01 * 0.22 - i * 0.03}
-            depthWrite={false}
-          />
+    <group>
+      {samples.map((p, idx) => (
+        <mesh key={idx} position={[p.x, 0.08, p.z]} scale={scale}>
+          <boxGeometry args={[0.32, 0.05, 0.32]} />
+          <meshStandardMaterial color={p.color} transparent opacity={0.5} depthWrite={false} />
         </mesh>
       ))}
     </group>
   );
-});
+}
 
-const Drones = memo(function Drones({ view, trail }: { view: VertexSwarmView; trail: THREE.Vector3[] }) {
+function TargetMarkers({
+  view,
+  selectedId,
+  onSelect,
+  reducedMotion,
+}: {
+  view: VertexSwarmView;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  reducedMotion: boolean;
+}) {
   return (
     <group>
-      {trail.length >= 2 ? (
-        <Line points={trail} color="#38bdf8" lineWidth={2} transparent opacity={0.38} />
-      ) : null}
-      {view.nodes.map((n) => {
-        const p = posFor(n.nodeId, view.nodes);
-        if (!p) return null;
-        const hue = n.role === "explorer" ? "#38bdf8" : n.role === "relay" ? "#a78bfa" : "#34d399";
+      {view.discovery.map((d) => {
+        const active = d.candidateId === selectedId;
+        const x = d.world.x * 0.08;
+        const z = d.world.z * 0.08;
+        const pulse = !reducedMotion ? 1 + Math.sin(performance.now() / 350) * 0.06 : 1;
         return (
-          <mesh key={n.nodeId} position={p}>
-            <sphereGeometry args={[n.offline ? 0.12 : 0.18, 16, 16]} />
-            <meshStandardMaterial color={hue} emissive={hue} emissiveIntensity={n.offline ? 0 : 0.35} roughness={0.4} />
-          </mesh>
+          <group key={d.candidateId} position={[x, 0.35, z]}>
+            <mesh
+              scale={pulse * (active ? 1.25 : 1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(active ? null : d.candidateId);
+              }}
+            >
+              <sphereGeometry args={[0.22, 20, 20]} />
+              <meshStandardMaterial color="#ef4444" emissive="#7f1d1d" emissiveIntensity={0.6} roughness={0.35} />
+            </mesh>
+            {active ? (
+              <Html distanceFactor={10} style={{ pointerEvents: "none" }} zIndexRange={[100, 0]}>
+                <div className="rounded-md border border-red-500/40 bg-zinc-950/95 px-2 py-1 text-[10px] text-red-100 font-mono shadow-lg max-w-[200px]">
+                  <div className="font-semibold">{d.candidateId}</div>
+                  <div>{(d.mergedConfidence01 * 100).toFixed(0)}% conf · {d.status}</div>
+                </div>
+              </Html>
+            ) : null}
+          </group>
         );
       })}
     </group>
   );
-});
+}
 
-function Scene({ view, trail, pulses, scenario }: { view: VertexSwarmView; trail: THREE.Vector3[]; pulses: Pulse[]; scenario: string }) {
-  const frontierIntensity = Math.min(1, (view.sharedMap.frontier ?? 0) / 24);
-  const waterLevel = (Math.sin(view.tickCount * 0.08) * 0.5 + 0.5) * 0.85;
-  const gasReading = view.telemetry.reduce((a, t) => a + t.sensorConfidence01, 0) / Math.max(1, view.telemetry.length);
+function Scene({
+  view,
+  trail,
+  pulses,
+  scenario,
+  reducedMotion,
+}: {
+  view: VertexSwarmView;
+  trail: THREE.Vector3[];
+  pulses: Pulse[];
+  scenario: string;
+  reducedMotion: boolean;
+}) {
+  const selectedTargetId = useMapOverlayStore((s) => s.selectedTargetId);
+  const setSelectedTargetId = useMapOverlayStore((s) => s.setSelectedTargetId);
+  const showGeofence = useMapOverlayStore((s) => s.showGeofence);
+  const explorerId = useMemo(() => view.nodes.find((n) => n.role === "explorer")?.nodeId ?? null, [view.nodes]);
 
   return (
     <>
       <color attach="background" args={["#050508"]} />
-      <ambientLight intensity={0.35} />
+      <ambientLight intensity={0.38} />
       <directionalLight position={[8, 14, 6]} intensity={0.85} castShadow />
       <gridHelper args={[20, 40, "#1e293b", "#0f172a"]} position={[0, 0.01, 0]} />
-      <RelayGlowLines view={view} />
-      <PulseRings pulses={pulses} />
-      {scenario === "wildfire" ? <WildfireHeat intensity01={frontierIntensity} /> : null}
-      {scenario === "flood_rescue" ? <FloodPlane level01={waterLevel} /> : null}
-      {scenario === "hazmat" ? <GasContour reading01={gasReading} /> : null}
-      <Drones view={view} trail={trail} />
+      <RelayAnimatedLines view={view} />
+      <PulseRings pulses={pulses} reducedMotion={reducedMotion} />
+      <WildfireHeatPlane scenario={scenario} />
+      <FloodWaterPlane scenario={scenario} view={view} />
+      <HazmatContourField scenario={scenario} view={view} />
+      <GeofenceGroup visible={showGeofence} />
+      <ExploredCellOverlay view={view} />
+      <InstancedDrones view={view} selectedId={explorerId} reducedMotion={reducedMotion} />
+      {trail.length >= 2 ? (
+        <Line points={trail} color="#38bdf8" lineWidth={2} transparent opacity={0.38} depthWrite={false} />
+      ) : null}
+      <TargetMarkers
+        view={view}
+        selectedId={selectedTargetId}
+        onSelect={setSelectedTargetId}
+        reducedMotion={reducedMotion}
+      />
     </>
   );
 }
@@ -175,6 +473,7 @@ export const BlackoutWorldMap3D = memo(function BlackoutWorldMap3D({
   const prevConfirmedRef = useRef<Set<string>>(new Set());
   const [pulses, setPulses] = useState<Pulse[]>([]);
   const [trail, setTrail] = useState<THREE.Vector3[]>([]);
+  const reducedMotion = usePrefersReducedMotion();
 
   const explorerId = useMemo(() => view?.nodes.find((n) => n.role === "explorer")?.nodeId ?? null, [view?.nodes]);
 
@@ -244,8 +543,28 @@ export const BlackoutWorldMap3D = memo(function BlackoutWorldMap3D({
 
   return (
     <div className="space-y-2" data-tour="map3d">
-      <div className="flex justify-end">
-        <Button type="button" size="sm" variant="outline" className="min-h-11 text-xs" onClick={resetCamera}>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11 text-xs"
+          onClick={() => useMapOverlayStore.getState().setShowExploredGrid(!useMapOverlayStore.getState().showExploredGrid)}
+          aria-label="Toggle explored cell overlay"
+        >
+          Explored grid
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11 text-xs"
+          onClick={() => useMapOverlayStore.getState().setShowGeofence(!useMapOverlayStore.getState().showGeofence)}
+          aria-label="Toggle operational geofence box"
+        >
+          Geofence
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="min-h-11 text-xs" onClick={resetCamera} aria-label="Reset map camera">
           Reset camera
         </Button>
       </div>
@@ -256,7 +575,7 @@ export const BlackoutWorldMap3D = memo(function BlackoutWorldMap3D({
           dpr={[1, 2]}
           gl={{ antialias: true, alpha: false }}
         >
-          <Scene view={view} trail={trail} pulses={pulses} scenario={sc} />
+          <Scene view={view} trail={trail} pulses={pulses} scenario={sc} reducedMotion={reducedMotion} />
           <OrbitControls
             ref={controlsRef}
             enablePan
@@ -268,8 +587,8 @@ export const BlackoutWorldMap3D = memo(function BlackoutWorldMap3D({
         </Canvas>
       </div>
       <p className="text-[10px] text-muted-foreground leading-relaxed">
-        Explorer trail (last {EXPLORER_TRAIL_MAX} samples), victim pulse rings, relay-chain cyan glow (additive), and scenario overlays
-        (wildfire / flood / hazmat). Orbit · pan · zoom.
+        Instanced drones, relay glow, explored voxels, geofence, victim markers (click for detail), and scenario overlays.{" "}
+        {reducedMotion ? "Reduced motion: pulse rings softened." : ""}
       </p>
     </div>
   );

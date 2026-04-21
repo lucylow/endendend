@@ -140,6 +140,9 @@ export function VertexSwarmDashboard() {
   const [tourOpen, setTourOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const [netOnline, setNetOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [devControlOpen, setDevControlOpen] = useState(
+    () => import.meta.env.DEV || (typeof localStorage !== "undefined" && localStorage.getItem("blackout_dev_control") === "1"),
+  );
 
   const metricsWs = import.meta.env.VITE_SWARM_METRICS_WS as string | undefined;
   const { points: metricPoints, pushPoint, clear: clearMetrics } = useStreamingMetric({
@@ -261,6 +264,26 @@ export function VertexSwarmDashboard() {
             <Button type="button" size="sm" variant="ghost" className="min-h-11 text-xs" onClick={() => setTourOpen(true)}>
               {t("tour", lang)}
             </Button>
+            {!import.meta.env.DEV ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="min-h-11 text-[10px] font-mono text-zinc-500"
+                aria-label="Toggle operator failure injection panel"
+                onClick={() => {
+                  const next = !devControlOpen;
+                  setDevControlOpen(next);
+                  try {
+                    localStorage.setItem("blackout_dev_control", next ? "1" : "0");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                Dev controls
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant={demoMode ? "secondary" : "outline"}
@@ -371,39 +394,50 @@ export function VertexSwarmDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6">
-        <section className="xl:col-span-7 space-y-4" aria-labelledby="scenario-workspace-heading">
+      <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2 xl:grid-cols-12">
+        <div ref={mapAnchor} className="space-y-4 xl:col-span-5 min-w-0 order-1">
           <h2 id="scenario-workspace-heading" className="sr-only">
-            Scenario workspace
+            Scenario workspace — map
           </h2>
-          <ScenarioMainPanel scenario={scenario} envelope={flatForScenario} />
-          <SwarmOverview view={view} />
-          <div ref={mapAnchor}>
-            <Suspense fallback={<PanelFallback label="world map" />}>
-              <SharedWorldMapPanel
-                view={view}
-                scenario={scenario}
-                show3D={isDesktop}
-                onSnapshot={() => snapshotFoxMap()}
-                onReplay={() => replayFoxMapHistory()}
-                onStamp={() => stampFoxMapCell(0, 0)}
-                onRecoverSample={() => void recoverFoxMapNode("agent-relay-b")}
-              />
-            </Suspense>
-          </div>
-        </section>
+          <Suspense fallback={<PanelFallback label="world map" />}>
+            <SharedWorldMapPanel
+              view={view}
+              scenario={scenario}
+              show3D={isDesktop}
+              onSnapshot={() => snapshotFoxMap()}
+              onReplay={() => replayFoxMapHistory()}
+              onStamp={() => stampFoxMapCell(0, 0)}
+              onRecoverSample={() => void recoverFoxMapNode("agent-relay-b")}
+            />
+          </Suspense>
+        </div>
 
-        <aside className="xl:col-span-5 space-y-4" aria-label="Fleet safety and allocation">
-          <MissionFleetPanel
-            nodes={view?.nodes ?? []}
-            telemetry={view?.telemetry ?? []}
-            autonomy={view?.autonomy ?? []}
-            nowMs={view?.nowMs ?? Date.now()}
-          />
-          <BlackoutSafetyPanel envelope={flatForScenario} onShowOnMap={scrollToMap} />
-          <BlackoutRecoveryPanel envelope={flatForScenario} />
-          <BlackoutTaskAllocationPanel view={view} />
-        </aside>
+        <div className="flex flex-col gap-4 xl:col-span-7 xl:grid xl:grid-cols-12 xl:gap-6 order-2 min-w-0">
+          <section className="space-y-4 xl:col-span-7" aria-labelledby="scenario-panel-heading">
+            <h2 id="scenario-panel-heading" className="sr-only">
+              Scenario panel and swarm overview
+            </h2>
+            <ScenarioMainPanel
+              scenario={scenario}
+              envelope={flatForScenario}
+              view={view}
+              onReassignDrone={(id) => void forceRoleHandoff(id)}
+            />
+            <SwarmOverview view={view} />
+          </section>
+
+          <aside className="space-y-4 xl:col-span-5" aria-label="Fleet safety and allocation">
+            <MissionFleetPanel
+              nodes={view?.nodes ?? []}
+              telemetry={view?.telemetry ?? []}
+              autonomy={view?.autonomy ?? []}
+              nowMs={view?.nowMs ?? Date.now()}
+            />
+            <BlackoutSafetyPanel envelope={flatForScenario} onShowOnMap={scrollToMap} />
+            <BlackoutRecoveryPanel envelope={flatForScenario} />
+            <BlackoutTaskAllocationPanel view={view} />
+          </aside>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
@@ -573,7 +607,7 @@ export function VertexSwarmDashboard() {
         </CardContent>
       </Card>
 
-      {import.meta.env.DEV ? (
+      {import.meta.env.DEV || devControlOpen ? (
         <div className="mt-6">
           <DevFailureInjectionPanel
             nodes={view?.nodes ?? []}
@@ -591,6 +625,9 @@ export function VertexSwarmDashboard() {
             onBurstLoss={() => meshInjectPacketLoss(0.35)}
             onTunnelPreset={() => meshSetStressPreset("tunnel_connectivity")}
             onPartitionPreset={() => meshTogglePartition(true)}
+            meshInjectPacketLoss={meshInjectPacketLoss}
+            meshInjectLatency={meshInjectLatency}
+            meshResetStress={meshResetStress}
           />
         </div>
       ) : null}

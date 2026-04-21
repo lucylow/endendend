@@ -87,12 +87,19 @@ export function vertexViewToFlatEnvelope(view: VertexSwarmView | null): FlatMiss
       status: d.status,
     }));
 
+  const lossByNode = new Map<string, number>();
+  for (const e of view.graph.edges) {
+    lossByNode.set(e.a, Math.max(lossByNode.get(e.a) ?? 0, e.loss));
+    lossByNode.set(e.b, Math.max(lossByNode.get(e.b) ?? 0, e.loss));
+  }
+
   const nodes: FlatMissionEnvelope["nodes"] = view.nodes.map((n) => {
     const tel = view.telemetry.find((t) => t.nodeId === n.nodeId);
     const battery = tel?.battery01 ?? 0.75;
     const tasks = view.tasks.filter(
       (t) => t.winnerNodeId === n.nodeId && (t.status === "assigned" || t.status === "bidding" || t.status === "open"),
     ).length;
+    const depthM = Math.max(0, Math.round((n.position.y + 2) * 3.2 * 10) / 10);
     return {
       nodeId: n.nodeId,
       role: n.role,
@@ -100,6 +107,9 @@ export function vertexViewToFlatEnvelope(view: VertexSwarmView | null): FlatMiss
       battery: Math.round(battery * 1000) / 1000,
       health: healthForNode(view, n.nodeId, tel?.battery01),
       activeTasks: tasks,
+      depthM,
+      linkQuality01: tel != null ? Math.round(tel.link01 * 1000) / 1000 : undefined,
+      packetLoss01: lossByNode.has(n.nodeId) ? Math.round((lossByNode.get(n.nodeId) ?? 0) * 1000) / 1000 : undefined,
     };
   });
 
@@ -122,6 +132,8 @@ export function vertexViewToFlatEnvelope(view: VertexSwarmView | null): FlatMiss
     alerts: buildAlerts(view),
     recovery: recoveryFromView(view),
     settlement,
+    relayChains: view.graph.relayChains?.length ? view.graph.relayChains : undefined,
+    operatorNodeId: view.operatorNodeId,
     source: "local_engine",
     capturedAtMs: view.nowMs,
   };

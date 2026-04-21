@@ -30,6 +30,9 @@ export type FlatMissionEnvelope = {
     coveragePercent: number;
     targets: { id: string; confidence: number; status: string }[];
   };
+  /** Primary relay order for command-centre chain viz (from Vertex connectivity). */
+  relayChains?: string[][];
+  operatorNodeId?: string;
   nodes: {
     nodeId: string;
     role: string;
@@ -37,6 +40,12 @@ export type FlatMissionEnvelope = {
     battery: number;
     health: "online" | "syncing" | "degraded" | "stale";
     activeTasks: number;
+    /** Simulated depth (m) for tunnel / SAR panels — from agent altitude axis. */
+    depthM?: number;
+    /** 0–1 link quality from last telemetry sample. */
+    linkQuality01?: number;
+    /** 0–1 packet loss estimate from mesh edges touching this node (UI hint). */
+    packetLoss01?: number;
   }[];
   alerts: { type: string; severity: "warning" | "critical"; nodeId: string; message: string }[];
   recovery: {
