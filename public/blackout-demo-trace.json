@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "frames": [
+    { "offsetMs": 0, "peersOnline": 5, "peersStale": 0, "peersIsolated": 0, "consensusP50": 18, "consensusP95": 42, "consensusP99": 68, "rewardTotal": 40, "packetLossByDrone": { "agent-scout-a": 0.02, "agent-relay-a": 0.01, "agent-relay-b": 0.01, "agent-relay-c": 0.02, "agent-medic-a": 0.01 } },
+    { "offsetMs": 400, "peersOnline": 5, "peersStale": 0, "peersIsolated": 0, "consensusP50": 20, "consensusP95": 48, "consensusP99": 72, "rewardTotal": 55, "packetLossByDrone": { "agent-scout-a": 0.03, "agent-relay-a": 0.02, "agent-relay-b": 0.02, "agent-relay-c": 0.02, "agent-medic-a": 0.02 } },
+    { "offsetMs": 800, "peersOnline": 5, "peersStale": 0, "peersIsolated": 0, "consensusP50": 22, "consensusP95": 52, "consensusP99": 78, "rewardTotal": 72, "packetLossByDrone": { "agent-scout-a": 0.04, "agent-relay-a": 0.03, "agent-relay-b": 0.02, "agent-relay-c": 0.03, "agent-medic-a": 0.02 } },
+    { "offsetMs": 1200, "peersOnline": 4, "peersStale": 1, "peersIsolated": 0, "consensusP50": 35, "consensusP95": 88, "consensusP99": 140, "rewardTotal": 90, "packetLossByDrone": { "agent-scout-a": 0.08, "agent-relay-a": 0.12, "agent-relay-b": 0.05, "agent-relay-c": 0.06, "agent-medic-a": 0.04 } },
+    { "offsetMs": 1600, "peersOnline": 4, "peersStale": 1, "peersIsolated": 0, "consensusP50": 38, "consensusP95": 95, "consensusP99": 155, "rewardTotal": 108, "packetLossByDrone": { "agent-scout-a": 0.1, "agent-relay-a": 0.14, "agent-relay-b": 0.07, "agent-relay-c": 0.08, "agent-medic-a": 0.05 } },
+    { "offsetMs": 2000, "peersOnline": 3, "peersStale": 1, "peersIsolated": 1, "consensusP50": 55, "consensusP95": 130, "consensusP99": 210, "rewardTotal": 120, "packetLossByDrone": { "agent-scout-a": 0.18, "agent-relay-a": 0.22, "agent-relay-b": 0.12, "agent-relay-c": 0.14, "agent-medic-a": 0.09 } },
+    { "offsetMs": 2400, "peersOnline": 4, "peersStale": 1, "peersIsolated": 0, "consensusP50": 40, "consensusP95": 100, "consensusP99": 165, "rewardTotal": 145, "packetLossByDrone": { "agent-scout-a": 0.09, "agent-relay-a": 0.11, "agent-relay-b": 0.08, "agent-relay-c": 0.09, "agent-medic-a": 0.06 } },
+    { "offsetMs": 2800, "peersOnline": 5, "peersStale": 0, "peersIsolated": 0, "consensusP50": 24, "consensusP95": 58, "consensusP99": 92, "rewardTotal": 168, "packetLossByDrone": { "agent-scout-a": 0.04, "agent-relay-a": 0.04, "agent-relay-b": 0.03, "agent-relay-c": 0.04, "agent-medic-a": 0.03 } },
+    { "offsetMs": 3200, "peersOnline": 5, "peersStale": 0, "peersIsolated": 0, "consensusP50": 21, "consensusP95": 50, "consensusP99": 82, "rewardTotal": 190, "packetLossByDrone": { "agent-scout-a": 0.03, "agent-relay-a": 0.03, "agent-relay-b": 0.02, "agent-relay-c": 0.03, "agent-medic-a": 0.02 } }
+  ]
+}

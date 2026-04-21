@@ -218,7 +218,7 @@ type PanelProps = {
 export function MissionFleetPanel({ nodes, telemetry, autonomy, nowMs }: PanelProps) {
   const primary = nodes.slice(0, 5);
   return (
-    <section aria-labelledby="fleet-heading" className="space-y-3">
+    <section aria-labelledby="fleet-heading" className="space-y-3" data-tour="fleet">
       <div className="flex items-center justify-between gap-2">
         <h2 id="fleet-heading" className="text-sm font-semibold text-foreground tracking-tight">
           Primary fleet

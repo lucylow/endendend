@@ -51,6 +51,10 @@ export type VertexSwarmStoreState = {
   replayFoxMapHistory: () => void;
   stampFoxMapCell: (gx: number, gz: number) => void;
   recoverFoxMapNode: (nodeId: string) => Promise<void>;
+  /** Restore a dropped / offline drone in the local simulator. */
+  recoverDrone: (nodeId: string) => Promise<void>;
+  /** Simulated ROS/PX4 kill — drops every agent and pauses (dev / demo only). */
+  emergencyHardwareStop: () => Promise<void>;
 };
 
 const MAX_LOG = 200;
@@ -262,6 +266,22 @@ export const useVertexSwarmStore = create<VertexSwarmStoreState>((set, get) => (
   async recoverFoxMapNode(nodeId: string) {
     const sim = get().simulator ?? (get().initSimulator(), get().simulator);
     if (sim) await sim.forceNodeRecovery(nodeId);
+    await get().stepOnce();
+  },
+
+  async recoverDrone(nodeId: string) {
+    const sim = get().simulator ?? (get().initSimulator(), get().simulator);
+    if (sim) await sim.forceNodeRecovery(nodeId);
+    await get().stepOnce();
+  },
+
+  async emergencyHardwareStop() {
+    const sim = get().simulator ?? (get().initSimulator(), get().simulator);
+    const nodes = get().view?.nodes ?? [];
+    if (!sim || !nodes.length) return;
+    for (const n of nodes) sim.forceNodeDropout(n.nodeId);
+    get().pushLog("E-STOP: hardware bridge issued stop-all (simulated)");
+    get().pause();
     await get().stepOnce();
   },
 }));

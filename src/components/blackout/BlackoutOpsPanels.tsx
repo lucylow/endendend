@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { typography, colors } from "@/lib/design-tokens";
+import { SettlementManifestBlock } from "@/components/blackout/SettlementManifestBlock";
 
 function recoveryBadgeForHealth(h: FlatMissionEnvelope["nodes"][0]["health"]): {
   label: string;
@@ -45,7 +46,7 @@ export function BlackoutSafetyPanel({
         {envelope.alerts.length === 0 ? (
           <p className="text-xs text-muted-foreground">No active safety alerts.</p>
         ) : (
-          <ScrollArea className="max-h-[200px] pr-2">
+          <ScrollArea className="max-h-[200px] pr-2" aria-live="polite" aria-relevant="additions text">
             <ul className="space-y-2">
               {envelope.alerts.map((a, i) => (
                 <li
@@ -213,6 +214,14 @@ export function BlackoutSettlementPanel({ envelope }: { envelope: FlatMissionEnv
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Reward manifest downloaded");
+    try {
+      const raw = localStorage.getItem("blackout-settlement-history-v1");
+      const prev = raw ? (JSON.parse(raw) as { at: number; missionId: string; manifestHash: string; phase: string }[]) : [];
+      const entry = { at: Date.now(), missionId: envelope.missionId, manifestHash: s.manifestHash, phase: envelope.phase };
+      localStorage.setItem("blackout-settlement-history-v1", JSON.stringify([entry, ...prev].slice(0, 12)));
+    } catch {
+      /* ignore */
+    }
   };
 
   const copyHash = async () => {
@@ -255,6 +264,7 @@ export function BlackoutSettlementPanel({ envelope }: { envelope: FlatMissionEnv
             Export manifest
           </Button>
         </div>
+        <SettlementManifestBlock envelope={envelope} manifestHash={s.manifestHash} />
       </CardContent>
     </Card>
   );
