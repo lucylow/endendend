@@ -48,3 +48,12 @@ class TestHeadlessLaunch:
         ctrl.run()
         state = ctrl.get_state_for_dashboard()
         assert state["node_id"] == "test_1"
+
+    def test_lovable_cloud_payload_shape(self) -> None:
+        ctrl = launch_controller(["--headless", "--id", "d1", "--max-steps", "1"])
+        v = ctrl.get_lovable_cloud_vertex_payload("track2-x")
+        assert v["swarm_id"] == "track2-x"
+        assert v["drone_id"] == "d1"
+        assert "lamport_clock" in v and "vertex" in v and "state" in v
+        t = ctrl.get_lovable_cloud_telemetry_row("track2-x")
+        assert t["drone_id"] == "d1" and "timestamp_ns" in t

@@ -68,6 +68,11 @@ class VertexNode:
         self.messages_sent_window = 0
         self._metrics_window_start = time.monotonic()
 
+    @property
+    def lamport_clock(self) -> int:
+        """Monotonic logical clock stamped on outbound mesh traffic (for cloud merge ordering)."""
+        return self._lamport
+
     def set_mesh_routing(self, enabled: bool, network_sim: Optional["NetworkSimulator"] = None) -> None:
         """Enable or disable mesh mode (requires emulator + sim when enabling)."""
         if enabled:

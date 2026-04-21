@@ -18,3 +18,8 @@ services:
     environment:
       - ROS_DOMAIN_ID=0
       - VERTEX_SEED=42
+      # Optional: mirror Webots swarm state to Supabase-style edge functions
+      # (see supabase/functions/vertex-edge-sync and swarm-telemetry).
+      # - LOVABLE_EDGE_BASE_URL=https://<ref>.supabase.co/functions/v1
+      # - LOVABLE_SWARM_ID=track2-demo
+      # - LOVABLE_EDGE_TOKEN=<anon or service role if functions are locked down>

@@ -365,6 +365,36 @@ class DroneController:
             "last_safety_latency_ms": self._last_safety_latency_ms,
         }
 
+    def get_lovable_cloud_vertex_payload(self, swarm_id: str) -> Dict[str, Any]:
+        """Structured payload for edge ``vertex-edge-sync`` (Lovable / Supabase-style functions)."""
+        pos = self._gps_position_3d()
+        dash = self.get_state_for_dashboard()
+        return {
+            "swarm_id": swarm_id,
+            "drone_id": self.node_id,
+            "lamport_clock": int(self.vertex.lamport_clock),
+            "wall_time_s": time.time(),
+            "position_m": [pos[0], pos[1], pos[2]],
+            "vertex": self.vertex.scalability_snapshot(reset_window=False),
+            "state": dash,
+        }
+
+    def get_lovable_cloud_telemetry_row(self, swarm_id: str) -> Dict[str, Any]:
+        """High-rate row for ``swarm-telemetry`` (judge dashboards, time-series)."""
+        pos = self._gps_position_3d()
+        return {
+            "swarm_id": swarm_id,
+            "drone_id": self.node_id,
+            "timestamp_ns": time.time_ns(),
+            "position": [pos[0], pos[1], pos[2]],
+            "role": self.chain_mgr.role.value,
+            "health": max(0.0, min(1.0, float(self.battery) / float(config.AERIAL_BATTERY_CAPACITY))),
+            "battery_pct": float(self.battery),
+            "depth_m": float(pos[2]),
+            "behavior": self.behavior,
+            "safety_halt": self._safety_halt,
+        }
+
     def run(self) -> None:
         while self.robot.step():
             self.tick()

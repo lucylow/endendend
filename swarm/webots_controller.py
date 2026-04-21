@@ -19,6 +19,7 @@ from swarm.chain_manager import ChainManager, DroneRole
 from swarm.drone_controller import DroneController, SimpleMockGPS, SimpleMockRobot
 from swarm.network_simulator import MockDataGenerator, NetworkSimulator
 from swarm.vertex_node import VertexNode
+from swarm.lovable_cloud_sink import maybe_start_lovable_cloud_sink
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +195,7 @@ def launch_controller(argv: Optional[List[str]] = None) -> DroneController:
             drone_type=args.type,
         )
         _attach_ros2_vision_if_requested(ctrl, args.id, use_ros_vision)
+        maybe_start_lovable_cloud_sink(ctrl)
         return ctrl
 
     # Real Webots
@@ -224,6 +226,7 @@ def launch_controller(argv: Optional[List[str]] = None) -> DroneController:
         drone_type=args.type,
     )
     _attach_ros2_vision_if_requested(ctrl, args.id, use_ros_vision)
+    maybe_start_lovable_cloud_sink(ctrl)
     return ctrl
 
 

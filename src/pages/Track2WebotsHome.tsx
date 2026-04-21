@@ -35,6 +35,11 @@ export default function Track2WebotsHome() {
         <p className="mt-10 font-mono text-xs text-muted-foreground">
           Webots: <code className="rounded bg-muted px-1 py-0.5">webots worlds/fallen_comrade.wbt</code> — stream ws://127.0.0.1:8765
         </p>
+        <p className="mt-2 font-mono text-xs text-muted-foreground">
+          Edge mirror (optional): set <code className="rounded bg-muted px-1 py-0.5">LOVABLE_EDGE_BASE_URL</code> for controllers and{" "}
+          <code className="rounded bg-muted px-1 py-0.5">VITE_LOVABLE_EDGE_BASE_URL</code> for the UI (
+          <code className="rounded bg-muted px-1 py-0.5">src/lib/lovableCloud.ts</code>).
+        </p>
         <p className="mt-2 text-xs text-muted-foreground">
           UI dev server defaults to port 8080 (see <code className="rounded bg-muted px-1">vite.config.ts</code>).
         </p>
