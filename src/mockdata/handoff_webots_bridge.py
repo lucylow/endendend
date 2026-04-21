@@ -27,6 +27,8 @@ def handoff_engine_to_track2_frame(engine: "BlindHandoffEngine") -> Dict[str, An
         bids_out[rid] = {
             "score": float(row.get("score", 0.0)),
             "distance": float(row.get("distance", 0.0)),
+            "battery": float(row.get("battery", 0.0)),
+            "capacity": str(row.get("capacity", "")),
         }
 
     ground: List[Dict[str, Any]] = []
@@ -45,12 +47,15 @@ def handoff_engine_to_track2_frame(engine: "BlindHandoffEngine") -> Dict[str, An
     aerial_payload: Dict[str, Any] = {
         "position": [float(engine.aerial.position[0]), float(engine.aerial.position[1]), float(engine.aerial.position[2])],
         "battery": round(float(engine.aerial.battery), 2),
+        "mode": engine.aerial.mode,
     }
     if engine.aerial.victim_detected:
         aerial_payload["victim_detected"] = engine.aerial.victim_detected
 
     return {
         "time": round(engine.t, 3),
+        "cycle_t": round(lt, 3),
+        "timeline": {k: float(v) for k, v in engine.timeline.items()},
         "global_map": [],
         "reallocated": False,
         "rovers": [],

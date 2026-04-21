@@ -29,10 +29,14 @@ class BlindHandoffEngine:
         config: Optional[BlindHandoffConfig] = None,
     ) -> None:
         self.config = config or BlindHandoffConfig()
-        self.seed = int(self.config.seed if config is not None else seed)
-        self.world = world or AirGroundWorld().generate(self.seed)
-        if world is not None:
+        if config is not None:
+            self.seed = int(config.seed)
+        elif world is not None:
+            ws = world.get("seed")
+            self.seed = int(ws) if isinstance(ws, (int, float)) else int(seed)
+        else:
             self.seed = int(seed)
+        self.world = world or AirGroundWorld().generate(self.seed)
         self.timeline: Dict[str, float] = {**self.world.get("timeline", {})}
         for k, v in {
             "detect_s": 15.0,

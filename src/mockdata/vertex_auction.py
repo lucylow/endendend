@@ -56,7 +56,12 @@ class VertexAuction:
             return
         score, dist = self.calculate_bid_score(rover)
         self.scores[rover.rover_id] = score
-        self.bids[rover.rover_id] = {"score": score, "distance": dist}
+        self.bids[rover.rover_id] = {
+            "score": score,
+            "distance": dist,
+            "battery": float(rover.battery),
+            "capacity": rover.capacity,
+        }
         handoff_protocol.bid_message(rover.rover_id, dist, rover.battery, rover.capacity)
 
     def collect_from_rovers(self, rovers: List[RoverBidInput]) -> None:

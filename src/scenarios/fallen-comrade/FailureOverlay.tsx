@@ -3,11 +3,16 @@ import { useSwarmStore } from "@/stores/swarmStore";
 export function FailureOverlay() {
   const rovers = useSwarmStore((s) => s.rovers);
   const time = useSwarmStore((s) => s.time);
+  const meta = useSwarmStore((s) => s.fallenScenarioMeta);
   const b = rovers.find((r) => r.id === "RoverB");
   const c = rovers.find((r) => r.id === "RoverC");
   const bDead = b?.state === "dead";
   const cDead = c?.state === "dead";
-  const hbLoss = b && !bDead && time >= 30 && time < 33;
+  const commStart = typeof meta?.rover_b_comm_loss_start_s === "number" ? meta.rover_b_comm_loss_start_s : 27;
+  const hbTimeout = typeof meta?.heartbeat_timeout_s === "number" ? meta.heartbeat_timeout_s : 3;
+  const expectDead =
+    typeof meta?.expected_rover_b_dead_s === "number" ? meta.expected_rover_b_dead_s : commStart + hbTimeout;
+  const hbLoss = b && !bDead && time >= commStart && time < expectDead;
 
   return (
     <div className="pointer-events-none absolute right-4 top-24 z-10 max-w-sm space-y-2 text-right font-mono text-sm text-white drop-shadow-md">

@@ -3,17 +3,33 @@ import { subscribeWithSelector } from "zustand/middleware";
 
 export type Track2Scenario = "fallen" | "handoff" | "daisy" | "none";
 
+export type RoverTelemetry = {
+  speed_mps?: number;
+  heartbeat_age_s?: number;
+  explored_unique_cells?: number;
+  task?: string;
+  assigned_victims?: string[];
+};
+
 export interface RoverState {
   id: string;
   position: [number, number, number];
   state: "exploring" | "dead" | "reallocating";
   battery: number;
   sector: { bounds: [number, number, number, number] };
+  telemetry?: RoverTelemetry;
+}
+
+export interface AuctionBidRow {
+  score: number;
+  distance: number;
+  battery?: number;
+  capacity?: string;
 }
 
 export interface AuctionState {
   active: boolean;
-  bids: Record<string, { score: number; distance: number }>;
+  bids: Record<string, AuctionBidRow>;
   winner: string | null;
   task?: { coords: [number, number, number] };
 }
@@ -26,6 +42,7 @@ export interface SwarmStreamState {
   aerial: {
     position: [number, number, number];
     battery: number;
+    mode?: string;
     victim_detected?: { coords: [number, number, number] };
   } | null;
   groundRovers: RoverState[];
@@ -39,6 +56,14 @@ export interface SwarmStreamState {
   isPlaying: boolean;
   speed: 1 | 2 | 4;
   lastError: string | null;
+  fallenVictims: unknown[];
+  fallenObstacles: unknown[];
+  fallenEvents: unknown[];
+  fallenScenarioMeta: Record<string, unknown> | null;
+  /** Blind handoff: seconds since current cycle start (mock/Webots snapshot). */
+  cycleT: number;
+  /** Blind handoff judge timeline keyframes (seconds), when present. */
+  timeline: Record<string, number> | null;
 }
 
 type WebotsJson = {
@@ -47,6 +72,8 @@ type WebotsJson = {
   reallocated?: boolean;
   /** Simulation clock (seconds) from mock or Webots bridge. */
   time?: number;
+  cycle_t?: number;
+  timeline?: Record<string, number>;
   aerial?: SwarmStreamState["aerial"];
   ground_rovers?: RoverState[];
   auction?: Partial<AuctionState> | AuctionState;
@@ -54,6 +81,10 @@ type WebotsJson = {
   tunnel_depth?: number;
   relay_chain?: string[];
   signal_quality?: Record<string, number>;
+  victims?: unknown[];
+  obstacles?: unknown[];
+  events?: unknown[];
+  scenario_meta?: Record<string, unknown>;
 };
 
 const defaultAuction: AuctionState = {
@@ -86,6 +117,25 @@ function normalizeRover(r: RoverState, index: number): RoverState {
   const position: [number, number, number] = pos
     ? [Number(r.position[0]) || 0, Number(r.position[1]) || 0, Number(r.position[2]) || 0]
     : [0, 0, 0];
+  const rawTel = (r as { telemetry?: unknown }).telemetry;
+  let telemetry: RoverTelemetry | undefined;
+  if (rawTel && typeof rawTel === "object" && !Array.isArray(rawTel)) {
+    const t = rawTel as Record<string, unknown>;
+    telemetry = {
+      speed_mps: typeof t.speed_mps === "number" && Number.isFinite(t.speed_mps) ? t.speed_mps : undefined,
+      heartbeat_age_s:
+        typeof t.heartbeat_age_s === "number" && Number.isFinite(t.heartbeat_age_s) ? t.heartbeat_age_s : undefined,
+      explored_unique_cells:
+        typeof t.explored_unique_cells === "number" && Number.isFinite(t.explored_unique_cells)
+          ? t.explored_unique_cells
+          : undefined,
+      task: typeof t.task === "string" ? t.task : undefined,
+      assigned_victims: Array.isArray(t.assigned_victims)
+        ? (t.assigned_victims as unknown[]).filter((x): x is string => typeof x === "string")
+        : undefined,
+    };
+  }
+
   return {
     ...r,
     id: typeof r.id === "string" && r.id.length ? r.id : `rover-${index}`,
@@ -93,6 +143,7 @@ function normalizeRover(r: RoverState, index: number): RoverState {
     battery: typeof r.battery === "number" && Number.isFinite(r.battery) ? r.battery : 100,
     state: r.state === "dead" || r.state === "reallocating" || r.state === "exploring" ? r.state : "exploring",
     sector: { bounds },
+    telemetry,
   };
 }
 
@@ -111,7 +162,12 @@ function sanitizeBids(raw: AuctionState["bids"] | undefined): AuctionState["bids
     if (!v || typeof v !== "object") continue;
     const score = typeof v.score === "number" && Number.isFinite(v.score) ? v.score : 0;
     const distance = typeof v.distance === "number" && Number.isFinite(v.distance) ? v.distance : 0;
-    out[k] = { score, distance };
+    const battery = typeof v.battery === "number" && Number.isFinite(v.battery) ? v.battery : undefined;
+    const capacity = typeof v.capacity === "string" && v.capacity.length ? v.capacity : undefined;
+    const row: AuctionBidRow = { score, distance };
+    if (battery !== undefined) row.battery = battery;
+    if (capacity !== undefined) row.capacity = capacity;
+    out[k] = row;
   }
   return out;
 }
@@ -184,6 +240,12 @@ const initial: SwarmStreamState = {
   isPlaying: true,
   speed: 1,
   lastError: null,
+  fallenVictims: [],
+  fallenObstacles: [],
+  fallenEvents: [],
+  fallenScenarioMeta: null,
+  cycleT: 0,
+  timeline: null,
 };
 
 /** Webots ↔ Track 2 UI bridge (browser WebSocket). */
@@ -223,11 +285,21 @@ export const useSwarmStore = create<SwarmStore>()(
               const relayChain = j.relay_chain ?? prev.relayChain;
               const signalQuality = j.signal_quality ?? prev.signalQuality;
 
+              const fallenVictims = Array.isArray(j.victims) ? j.victims : prev.fallenVictims;
+              const fallenObstacles = Array.isArray(j.obstacles) ? j.obstacles : prev.fallenObstacles;
+              const fallenEvents = Array.isArray(j.events) ? j.events : prev.fallenEvents;
+              const fallenScenarioMeta =
+                j.scenario_meta && typeof j.scenario_meta === "object" && !Array.isArray(j.scenario_meta)
+                  ? j.scenario_meta
+                  : prev.fallenScenarioMeta;
+
               const partial: Partial<SwarmStreamState> = {
                 rovers,
                 globalMap,
                 reallocated: j.reallocated ?? prev.reallocated,
                 time: typeof j.time === "number" ? j.time : prev.time,
+                cycleT: typeof j.cycle_t === "number" ? j.cycle_t : prev.cycleT,
+                timeline: j.timeline && typeof j.timeline === "object" ? j.timeline : prev.timeline,
                 aerial,
                 groundRovers,
                 auction: mergeAuction(prev.auction, j.auction),
@@ -235,6 +307,10 @@ export const useSwarmStore = create<SwarmStore>()(
                 tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
                 relayChain,
                 signalQuality,
+                fallenVictims,
+                fallenObstacles,
+                fallenEvents,
+                fallenScenarioMeta,
               };
 
               const scenario = inferScenario(
@@ -308,11 +384,21 @@ export const useSwarmStore = create<SwarmStore>()(
       const relayChain = j.relay_chain ?? prev.relayChain;
       const signalQuality = j.signal_quality ?? prev.signalQuality;
 
+      const fallenVictims = Array.isArray(j.victims) ? j.victims : prev.fallenVictims;
+      const fallenObstacles = Array.isArray(j.obstacles) ? j.obstacles : prev.fallenObstacles;
+      const fallenEvents = Array.isArray(j.events) ? j.events : prev.fallenEvents;
+      const fallenScenarioMeta =
+        j.scenario_meta && typeof j.scenario_meta === "object" && !Array.isArray(j.scenario_meta)
+          ? j.scenario_meta
+          : prev.fallenScenarioMeta;
+
       const partial: Partial<SwarmStreamState> = {
         rovers,
         globalMap,
         reallocated: j.reallocated ?? prev.reallocated,
         time: typeof j.time === "number" ? j.time : prev.time,
+        cycleT: typeof j.cycle_t === "number" ? j.cycle_t : prev.cycleT,
+        timeline: j.timeline && typeof j.timeline === "object" ? j.timeline : prev.timeline,
         aerial,
         groundRovers,
         auction: mergeAuction(prev.auction, j.auction),
@@ -320,6 +406,10 @@ export const useSwarmStore = create<SwarmStore>()(
         tunnelDepth: typeof j.tunnel_depth === "number" ? j.tunnel_depth : prev.tunnelDepth,
         relayChain,
         signalQuality,
+        fallenVictims,
+        fallenObstacles,
+        fallenEvents,
+        fallenScenarioMeta,
       };
 
       const scenario = inferScenario({ ...prev, ...partial }, prev);

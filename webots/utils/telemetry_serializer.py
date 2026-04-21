@@ -67,4 +67,7 @@ def merge_with_mock_track2(base: Dict[str, Any], mock_frame: Mapping[str, Any]) 
         out["reallocated"] = mock_frame["reallocated"]
     if "rovers" in mock_frame:
         out["rovers"] = mock_frame["rovers"]
+    for k in ("victims", "obstacles", "events", "scenario_meta"):
+        if k in mock_frame:
+            out[k] = mock_frame[k]
     return out
