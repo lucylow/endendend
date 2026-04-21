@@ -1,0 +1,11 @@
+export * from "@/wallet/types";
+export * from "@/wallet/demoPersonas";
+export * from "@/wallet/events";
+export * from "@/wallet/settlementBridge";
+export { walletService, mockWalletAdapter } from "@/wallet/walletService";
+export { useWalletStore, resetWalletStoreForTests } from "@/wallet/walletStore";
+export { WalletProvider } from "@/wallet/WalletProvider";
+export { WagmiWalletBindings } from "@/wallet/WagmiWalletBindings";
+export { RuntimeWalletSync } from "@/wallet/RuntimeWalletSync";
+export { MockWalletAdapter } from "@/wallet/mockWallet";
+export { RealWalletAdapter } from "@/wallet/realWalletAdapter";

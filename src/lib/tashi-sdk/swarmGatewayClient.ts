@@ -42,15 +42,24 @@ export type SwarmWsSnapshotListener = (snap: SwarmBackendSnapshot) => void;
 /**
  * Subscribes to FastAPI ``/ws`` frames: initial ``{type:\"snapshot\",payload}`` and optional hub events.
  */
+export type SwarmWsLifecycle = {
+  onOpen?: () => void;
+  onClose?: () => void;
+  onError?: () => void;
+};
+
 export class SwarmBackendRealtime {
   private ws: WebSocket | null = null;
 
   constructor(private readonly wsUrl: string) {}
 
-  connect(onSnapshot: SwarmWsSnapshotListener): void {
+  connect(onSnapshot: SwarmWsSnapshotListener, lifecycle?: SwarmWsLifecycle): void {
     if (typeof WebSocket === "undefined") return;
     this.disconnect();
     this.ws = new WebSocket(this.wsUrl);
+    this.ws.onopen = () => lifecycle?.onOpen?.();
+    this.ws.onclose = () => lifecycle?.onClose?.();
+    this.ws.onerror = () => lifecycle?.onError?.();
     this.ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(String(ev.data)) as Record<string, unknown>;

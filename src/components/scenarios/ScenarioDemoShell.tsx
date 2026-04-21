@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, BookOpen, LayoutDashboard, LifeBuoy, Radio } from "lucide-react";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -124,6 +125,7 @@ export default function ScenarioDemoShell({
                 Classic viz
               </Link>
             </Button>
+            <ConnectWalletButton compact variant="outline" size="sm" className="shrink-0" />
           </nav>
         </div>
       </header>

@@ -4,7 +4,11 @@ export type MissionScenarioKind =
   | "wildfire"
   | "extraction"
   | "flood_rescue"
-  | "hazmat";
+  | "hazmat"
+  | "indoor_search"
+  | "perimeter_sweep"
+  | "triage_operation"
+  | "night_mission";
 
 const KNOWN = new Set<string>([
   "collapsed_building",
@@ -13,6 +17,10 @@ const KNOWN = new Set<string>([
   "extraction",
   "flood_rescue",
   "hazmat",
+  "indoor_search",
+  "perimeter_sweep",
+  "triage_operation",
+  "night_mission",
 ]);
 
 /** Accepts ``collapsed-building`` / ``Collapsed Building`` style inputs. */

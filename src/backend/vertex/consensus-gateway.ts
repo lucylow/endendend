@@ -19,6 +19,8 @@ export function suggestPhaseTransition(
   fromPhase: MissionPhase,
   toPhase: MissionPhase,
   nowMs: number,
+  /** Optional fields merged into the Vertex payload (e.g. ``cellsKnown`` for map sync). */
+  extraPayload?: Record<string, unknown>,
 ): VertexSuggestion | { error: string } {
   const allowed = validVertexNextPhases(fromPhase);
   if (!allowed.includes(toPhase)) return { error: `invalid_transition:${fromPhase}->${toPhase}` };
@@ -27,7 +29,7 @@ export function suggestPhaseTransition(
     actorId,
     eventType: "phase_transition",
     plane: "vertex",
-    payload: { fromPhase, toPhase },
+    payload: { fromPhase, toPhase, ...extraPayload },
     timestamp: nowMs,
   };
 }
@@ -45,6 +47,40 @@ export function suggestTargetDiscovery(
     eventType: "target_discovered",
     plane: "vertex",
     payload: { targetId, notes: notes ?? "" },
+    timestamp: nowMs,
+  };
+}
+
+export function suggestTaskAssignment(
+  missionId: string,
+  actorId: string,
+  taskId: string,
+  nodeId: string,
+  taskType: string,
+  nowMs: number,
+): VertexSuggestion {
+  return {
+    missionId,
+    actorId,
+    eventType: "task_assigned",
+    plane: "vertex",
+    payload: { taskId, nodeId, taskType },
+    timestamp: nowMs,
+  };
+}
+
+export function suggestRecoveryCheckpoint(
+  missionId: string,
+  actorId: string,
+  label: string,
+  nowMs: number,
+): VertexSuggestion {
+  return {
+    missionId,
+    actorId,
+    eventType: "recovery_checkpoint",
+    plane: "vertex",
+    payload: { label },
     timestamp: nowMs,
   };
 }

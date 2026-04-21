@@ -3,14 +3,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSwarmStore } from "@/store/swarmStore";
 import { Play, Pause, SkipBack, SkipForward, Clock } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Slider } from "@/components/ui/slider";
+import { useWallet } from "@/hooks/useWallet";
+import { useSettlementReady } from "@/hooks/useSettlementReady";
+import { buildDemoOutcomePacket } from "@/wallet/settlementBridge";
+import { SettlementPreview as OperatorSettlementPreview } from "@/components/SettlementPreview";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 export default function ReplayPage() {
   const { missions } = useSwarmStore();
   const mission = missions[0];
   const [currentTime, setCurrentTime] = useState([50]);
   const [playing, setPlaying] = useState(false);
+  const { isConnected } = useWallet();
+  const { lastPreview, buildPreview, signPreview, busy } = useSettlementReady();
+  const demoOutcome = useMemo(() => (mission ? buildDemoOutcomePacket(mission.id) : null), [mission]);
+
+  const onBuildSettlement = useCallback(() => {
+    if (!demoOutcome) return;
+    void buildPreview(demoOutcome);
+  }, [buildPreview, demoOutcome]);
 
   if (!mission) {
     return (
@@ -42,12 +55,15 @@ export default function ReplayPage() {
 
   return (
     <div className="space-y-6">
-      <div className="max-w-3xl space-y-2">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Mission replay</h1>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Timeline scrubber for post-run analysis. Each marker is emitted by the same event bus that powers the live
-          simulation — ideal for showing causality between Byzantine faults, relay promotions, and task assignment.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between max-w-3xl">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Mission replay</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Timeline scrubber for post-run analysis. Each marker is emitted by the same event bus that powers the live
+            simulation — ideal for showing causality between Byzantine faults, relay promotions, and task assignment.
+          </p>
+        </div>
+        <ConnectWalletButton className="shrink-0" />
       </div>
 
       <Card className="bg-card/50 border-border">
@@ -95,6 +111,30 @@ export default function ReplayPage() {
               </motion.div>
             ))}
           </div>
+
+          {mission.status === "completed" ? (
+            <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-foreground">Arc settlement preview</h2>
+                <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
+                  Settlement-ready
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Bind an operator wallet, then preview a reward manifest / mission completion certificate. Demo wallets
+                produce simulated signatures suitable for hackathon judging.
+              </p>
+              <Button type="button" size="sm" variant="secondary" disabled={!isConnected} onClick={onBuildSettlement}>
+                Build preview from demo outcome
+              </Button>
+              <OperatorSettlementPreview
+                preview={lastPreview}
+                missionId={mission.id}
+                onSign={() => void signPreview()}
+                signing={busy}
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>

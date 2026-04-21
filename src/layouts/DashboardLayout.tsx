@@ -29,6 +29,7 @@ import {
   Shield,
   Shuffle,
   Activity,
+  Share2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -52,6 +53,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
       { to: "/dashboard/simulation", label: "Live simulation", icon: Landmark },
+      { to: "/dashboard/vertex-swarm", label: "Vertex 2.0 swarm", icon: Share2 },
       { to: "/dashboard/swarm", label: "3D swarm viz", icon: Box },
       { to: "/dashboard/victim-detection", label: "Victim detection", icon: ScanEye },
       { to: "/dashboard/scalability", label: "Scalability", icon: Activity },

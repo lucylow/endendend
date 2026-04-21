@@ -1,6 +1,7 @@
-import { Activity, Radio, Users, Zap, AlertTriangle } from "lucide-react";
+import { Activity, Radio, Users, Zap, AlertTriangle, Wallet } from "lucide-react";
 import { useSwarmStore } from "@/store/swarmStore";
 import { cn } from "@/lib/utils";
+import { useWallet } from "@/hooks/useWallet";
 
 function Dot({ status }: { status: "ok" | "warn" | "critical" }) {
   const color =
@@ -20,6 +21,7 @@ function Dot({ status }: { status: "ok" | "warn" | "critical" }) {
 }
 
 export default function MissionStatusStrip() {
+  const { isConnected, account, openModal } = useWallet();
   const agents = useSwarmStore((s) => s.agents);
   const isRunning = useSwarmStore((s) => s.isRunning);
   const behaviorMode = useSwarmStore((s) => s.behaviorMode);
@@ -130,6 +132,29 @@ export default function MissionStatusStrip() {
           </div>
         </>
       )}
+
+      {isConnected && account ? (
+        <>
+          <span className="text-border hidden xl:inline">|</span>
+          <div className="hidden xl:flex items-center gap-1.5 shrink-0">
+            <Wallet className="h-3.5 w-3.5 text-primary/70" aria-hidden />
+            <span className="text-muted-foreground">Operator</span>
+            <button
+              type="button"
+              className={cn(
+                "max-w-[10rem] truncate rounded-md border border-transparent px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                account.isMock ? "text-amber-200" : "text-emerald-200",
+              )}
+              onClick={openModal}
+              title={account.address}
+            >
+              <span className="sr-only">Wallet connected: </span>
+              {account.isMock ? "Demo " : "Live "}
+              {account.address.slice(0, 6)}…{account.address.slice(-4)}
+            </button>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

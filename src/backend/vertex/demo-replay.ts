@@ -1,6 +1,12 @@
 import type { MissionPhase } from "@/backend/shared/mission-phases";
 import { coerceMissionScenarioKind } from "@/backend/shared/mission-scenarios";
-import { emptyMissionState, type MissionState, type RosterEntry, type SarTarget } from "@/backend/shared/mission-state";
+import {
+  emptyMissionState,
+  type MissionState,
+  type RosterEntry,
+  type SarTarget,
+  type VertexConnectivityMode,
+} from "@/backend/shared/mission-state";
 import type { MissionLedgerEvent } from "./mission-ledger";
 import type { VertexLedgerEventType } from "./event-types";
 import { isVertexEvent } from "./event-types";
@@ -78,7 +84,12 @@ function applyVertex(state: MissionState, type: VertexLedgerEventType, e: Missio
     }
     case "phase_transition": {
       const to = asPhase(e.payload.toPhase);
-      return to ? { ...state, phase: to } : state;
+      const cells = Number(e.payload.cellsKnown ?? NaN);
+      const mapPatch =
+        Number.isFinite(cells) && cells >= 0
+          ? { mapSummary: { ...state.mapSummary, cellsKnown: Math.max(state.mapSummary.cellsKnown ?? 0, Math.floor(cells)) } }
+          : {};
+      return to ? { ...state, phase: to, ...mapPatch } : state;
     }
     case "node_join": {
       const nodeId = String(e.payload.nodeId ?? "");
@@ -136,6 +147,43 @@ function applyVertex(state: MissionState, type: VertexLedgerEventType, e: Missio
         },
       };
     }
+    case "task_reassigned": {
+      const taskId = String(e.payload.taskId ?? "");
+      const nodeId = String(e.payload.newNodeId ?? e.payload.nodeId ?? "");
+      if (!taskId || !nodeId) return state;
+      return {
+        ...state,
+        assignments: {
+          ...state.assignments,
+          [taskId]: { taskId, nodeId, taskType: String(e.payload.taskType ?? "generic"), assignedAtMs: e.timestamp },
+        },
+      };
+    }
+    case "task_completed": {
+      const taskId = String(e.payload.taskId ?? "");
+      if (!taskId) return state;
+      const assignments = { ...state.assignments };
+      delete assignments[taskId];
+      const done = new Set(state.completedTaskIds ?? []);
+      done.add(taskId);
+      return { ...state, assignments, completedTaskIds: [...done] };
+    }
+    case "blackout_entered": {
+      const mode = e.payload.mode as VertexConnectivityMode | undefined;
+      return {
+        ...state,
+        connectivityMode: mode ?? "blackout",
+      };
+    }
+    case "blackout_cleared": {
+      return { ...state, connectivityMode: "recovery" };
+    }
+    case "sync_reconciled": {
+      return { ...state, connectivityMode: "normal" };
+    }
+    case "local_autonomy_activated":
+    case "tentative_phase":
+      return state;
     case "extraction_confirmed": {
       const targetId = String(e.payload.targetId ?? "");
       if (targetId && state.targets[targetId]) {

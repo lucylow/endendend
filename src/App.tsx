@@ -4,6 +4,8 @@ import { WagmiProvider } from "wagmi";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { wagmiConfig } from "@/lib/wagmi";
+import { WalletProvider } from "@/wallet/WalletProvider";
+import { WalletModal } from "@/components/WalletModal";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -24,6 +26,7 @@ import AuctionsPage from "@/pages/dashboard/Auctions";
 import StakingPage from "@/pages/dashboard/Staking";
 import BillingPage from "@/pages/dashboard/Billing";
 import ReplayPage from "@/pages/dashboard/Replay";
+import VertexSwarmPage from "@/pages/dashboard/VertexSwarm";
 import AgentsPage from "@/pages/dashboard/Agents";
 import AgentDetailPage from "@/pages/dashboard/AgentDetail";
 import SettingsPage from "@/pages/dashboard/Settings";
@@ -67,11 +70,13 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <WagmiProvider config={wagmiConfig}>
+    <WalletProvider>
     <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <WalletModal />
         <BrowserRouter>
           <AuthProvider>
             <Routes>
@@ -109,6 +114,7 @@ function App() {
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>} errorElement={<div className="min-h-screen bg-background flex items-center justify-center text-foreground"><div className="text-center space-y-2"><h1 className="text-xl font-bold">Dashboard Error</h1><p className="text-muted-foreground">Something went wrong. <a href="/dashboard" className="text-primary underline">Reload</a></p></div></div>}>
                 <Route index element={<ErrorBoundary fallback={<div className="p-8 text-muted-foreground">Failed to load overview. <a href="/dashboard" className="text-primary underline">Retry</a></div>}><DashboardOverview /></ErrorBoundary>} />
                 <Route path="simulation" element={<SimulationPage />} />
+                <Route path="vertex-swarm" element={<VertexSwarmPage />} />
                 <Route path="swarm" element={<SwarmVisualizationPage />} />
                 <Route path="victim-detection" element={<VictimDetectionPage />} />
                 <Route path="scalability" element={<ScalabilityPage />} />
@@ -145,6 +151,7 @@ function App() {
       </TooltipProvider>
     </ThemeProvider>
     </QueryClientProvider>
+    </WalletProvider>
     </WagmiProvider>
   );
 }

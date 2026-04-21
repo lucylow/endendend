@@ -1,0 +1,77 @@
+import type { MissionNodeRole } from "@/backend/shared/mission-state";
+
+/** Monotonic map cell states — ordinal merge uses `CELL_RANK`. */
+export type MapCellState = "unknown" | "frontier" | "seen" | "searched" | "blocked" | "target" | "safe";
+
+export type MapCellMeta = {
+  state: MapCellState;
+  /** Lamport-style version for deterministic merge. */
+  version: number;
+  updatedAtMs: number;
+  lastNodeId?: string;
+  /** Highest sensor confidence observed for this cell. */
+  confidence01?: number;
+};
+
+export type MapCoord = { gx: number; gz: number };
+
+export type SharedMapDelta = {
+  cells: Record<string, MapCellMeta>;
+  originNodeId: string;
+  emittedAtMs: number;
+};
+
+export type SensorEvidenceKind =
+  | "thermal"
+  | "optical"
+  | "ir"
+  | "audio"
+  | "gas"
+  | "lidar_shape"
+  | "operator_note"
+  | "peer_confirm"
+  | "replay_artifact";
+
+export type TargetEvidence = {
+  id: string;
+  sensor: SensorEvidenceKind;
+  confidence01: number;
+  nodeId: string;
+  atMs: number;
+  note?: string;
+};
+
+export type TargetCandidate = {
+  candidateId: string;
+  missionId: string;
+  gx: number;
+  gz: number;
+  world: { x: number; y: number; z: number };
+  evidence: TargetEvidence[];
+  mergedConfidence01: number;
+  status: "candidate" | "confirmed";
+  confirmedByNodeId?: string;
+  /** Human-readable merge trace for UI / audit. */
+  trustExplanation: string[];
+};
+
+export type RoleHandoffRecord = {
+  atMs: number;
+  nodeId: string;
+  fromRole: MissionNodeRole;
+  toRole: MissionNodeRole;
+  reason: string;
+  evidence: string;
+};
+
+export type ExplorationAssignment = {
+  nodeId: string;
+  frontierKeys: string[];
+  sectorLabel: string;
+};
+
+export type NodeExplorationState = {
+  nodeId: string;
+  cellsVisitedThisTick: number;
+  assignment: ExplorationAssignment | null;
+};

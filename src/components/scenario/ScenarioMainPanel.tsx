@@ -10,7 +10,24 @@ export function ScenarioMainPanel({
   scenario: ScenarioKey;
   envelope: TashiStateEnvelope;
 }) {
+  const roster = envelope.backend?.mission.roster;
+  const relayish =
+    roster != null
+      ? Object.values(roster).filter(
+          (r) => r.role === "relay" || r.capabilities.some((c) => c.toLowerCase().includes("relay")),
+        ).length
+      : envelope.nodes.filter((n) => n.role === "relay").length;
+  const thermalCapable =
+    roster != null
+      ? Object.values(roster).filter((r) => r.capabilities.some((c) => c.toLowerCase().includes("thermal"))).length
+      : envelope.nodes.filter((n) => n.role === "explorer").length;
+
+  const meshLatency = envelope.simulation?.mesh.meanLatencyMs;
+
   if (scenario === "collapsed_building") {
+    const relayStabilityPct = envelope.nodes.length
+      ? Math.min(99, Math.round((relayish / Math.max(1, envelope.nodes.length)) * 100))
+      : 0;
     return (
       <Card className="border-orange-500/20 bg-orange-500/5">
         <CardHeader>
@@ -20,15 +37,19 @@ export function ScenarioMainPanel({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
-          <Metric label="Relay Stability" value="92%" />
-          <Metric label="Victims Confirmed" value={`${envelope.mapSummary.targets.length}`} />
+          <Metric label="Relay share" value={`${relayStabilityPct}%`} />
+          <Metric label="Targets tracked" value={`${envelope.mapSummary.targets.length}`} />
           <Metric label="Coverage" value={`${envelope.mapSummary.coveragePercent.toFixed(1)}%`} />
+          {meshLatency != null ? <Metric label="Mesh latency (sim)" value={`${meshLatency} ms`} /> : null}
         </CardContent>
       </Card>
     );
   }
 
   if (scenario === "wildfire") {
+    const corridors = Math.max(0, envelope.mapSummary.targets.length + relayish - 1);
+    const heatStress =
+      envelope.mapSummary.coveragePercent > 70 ? "elevated" : envelope.mapSummary.coveragePercent > 40 ? "moderate" : "watch";
     return (
       <Card className="border-red-500/20 bg-red-500/5">
         <CardHeader>
@@ -38,9 +59,11 @@ export function ScenarioMainPanel({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
-          <Metric label="Heat Front" value="High" />
-          <Metric label="Safe Corridors" value="3" />
+          <Metric label="Thermal-capable nodes" value={`${thermalCapable}`} />
+          <Metric label="Corridor hints" value={`${corridors}`} />
           <Metric label="Coverage" value={`${envelope.mapSummary.coveragePercent.toFixed(1)}%`} />
+          <Metric label="Heat stress (derived)" value={heatStress} />
+          {meshLatency != null ? <Metric label="Mesh latency (sim)" value={`${meshLatency} ms`} /> : null}
         </CardContent>
       </Card>
     );
@@ -51,8 +74,10 @@ export function ScenarioMainPanel({
       <CardHeader>
         <CardTitle>Scenario Command View</CardTitle>
       </CardHeader>
-      <CardContent className="text-zinc-400">
-        {scenario.replaceAll("_", " ")} metrics go here.
+      <CardContent className="grid gap-4 md:grid-cols-3 text-zinc-400">
+        <Metric label="Active nodes" value={`${envelope.nodes.length}`} />
+        <Metric label="Targets" value={`${envelope.mapSummary.targets.length}`} />
+        <Metric label="Coverage" value={`${envelope.mapSummary.coveragePercent.toFixed(1)}%`} />
       </CardContent>
     </Card>
   );

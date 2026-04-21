@@ -1,6 +1,15 @@
 import type { MissionPhase } from "./mission-phases";
 import type { MissionScenarioKind } from "./mission-scenarios";
 
+/** Operator / mesh health as committed or derived from Vertex ledger (blackout / recovery). */
+export type VertexConnectivityMode =
+  | "normal"
+  | "degraded"
+  | "partial_partition"
+  | "blackout"
+  | "recovery"
+  | "resync";
+
 export type MissionNodeRole = "explorer" | "relay" | "carrier" | "medic" | "observer";
 
 export type RosterEntry = {
@@ -54,6 +63,10 @@ export type MissionState = {
   /** Monotonic Vertex ordering pointer — last committed ledger event hash + sequence. */
   consensusPointer: { sequence: number; lastEventHash: string };
   recoveryCheckpoints: string[];
+  /** Last committed connectivity regime (Vertex 2 — blackout / recovery ledger events). */
+  connectivityMode?: VertexConnectivityMode;
+  /** Task IDs completed per ledger ``task_completed`` rows. */
+  completedTaskIds: string[];
 };
 
 export function emptyMissionState(missionId: string, nowMs: number): MissionState {
@@ -69,5 +82,7 @@ export function emptyMissionState(missionId: string, nowMs: number): MissionStat
     alerts: [],
     consensusPointer: { sequence: 0, lastEventHash: "genesis" },
     recoveryCheckpoints: [],
+    connectivityMode: "normal",
+    completedTaskIds: [],
   };
 }

@@ -33,6 +33,7 @@ import HandoffMetrics from "@/scenarios/multi-swarm-handoff/HandoffMetrics";
 import HandoverControls from "@/scenarios/multi-swarm-handoff/HandoverControls";
 import { resetScenarioVizForSlug } from "@/store/scenarioVizStore";
 import { cn } from "@/lib/utils";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 export default function SearchRescueDemo() {
   const { scenarioSlug } = useParams<{ scenarioSlug: string }>();
@@ -156,6 +157,7 @@ function SearchRescueDemoContent({ scenario }: { scenario: ScenarioDefinition })
             </Badge>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <ConnectWalletButton variant="outline" size="sm" className="shrink-0" />
             {scenario.slug === "multi-swarm-handoff" ? <HandoverControls /> : null}
             <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex" asChild>
               <Link to="/dashboard/scenarios">Scenario index</Link>

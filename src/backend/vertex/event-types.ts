@@ -11,9 +11,16 @@ export const VERTEX_LEDGER_EVENT_TYPES = [
   "target_confirmed",
   "task_bid",
   "task_assigned",
+  "task_completed",
+  "task_reassigned",
   "extraction_confirmed",
   "safety_alert",
   "recovery_checkpoint",
+  "blackout_entered",
+  "blackout_cleared",
+  "sync_reconciled",
+  "local_autonomy_activated",
+  "tentative_phase",
 ] as const;
 
 export type VertexLedgerEventType = (typeof VERTEX_LEDGER_EVENT_TYPES)[number];

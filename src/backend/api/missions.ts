@@ -44,6 +44,8 @@ export async function proposeAndCommitPhaseTransition(
   nowMs: number,
   /** When set, Lattice enforces scenario capacity floors before Vertex commits the phase hop. */
   latticeScenario?: MissionScenarioKind,
+  /** Merged into the ``phase_transition`` Vertex payload (map progress, notes, …). */
+  phasePayloadExtra?: Record<string, unknown>,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const mission = replayMissionFromLedger(ledger.toArray(), missionId);
   const fromPhase: MissionPhase = mission.phase;
@@ -63,7 +65,7 @@ export async function proposeAndCommitPhaseTransition(
   const gate = latticePhaseReadiness(toPhase, ctx);
   if (!gate.ok) return { ok: false, reason: gate.reason ?? "lattice_gate" };
 
-  const sug = suggestPhaseTransition(missionId, actorId, fromPhase, toPhase, nowMs);
+  const sug = suggestPhaseTransition(missionId, actorId, fromPhase, toPhase, nowMs, phasePayloadExtra);
   if ("error" in sug) return { ok: false, reason: sug.error };
   await commitVertexBatch(ledger, [sug]);
   return { ok: true };
