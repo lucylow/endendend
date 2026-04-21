@@ -14,5 +14,6 @@ class Channel(str, Enum):
 
 
 def state_topic(ch: Channel | str) -> str:
+    """Map a channel name to a FoxMQ-style relative path."""
     rel = ch.value if isinstance(ch, Channel) else str(ch).lstrip("/")
     return f"vertex/{rel}"

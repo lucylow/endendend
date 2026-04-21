@@ -26,13 +26,13 @@ from mesh_survival.networking.adaptive_gossip import (
     gossip_priority,
     rank_neighbors_for_delivery,
     top_k_neighbors,
-    ttl_decay,
 )
-from mesh_survival.networking.partition_detector import GossipClock, PartitionDetector
+from mesh_survival.networking.partition_detector import PartitionDetector
 from mesh_survival.topology.connectivity_matrix import ConnectivityMatrix
 from mesh_survival.topology.relay_optimizer import widest_path_capacity
 from mesh_survival.validation.partition_sim import merge_partitions
 from mesh_survival.validation.resilience_benchmark import quick_resilience_suite
+from swarm.mesh_survival_bridge import geometric_fanout_targets
 
 
 def test_adaptive_fanout_monotone() -> None:
@@ -143,3 +143,12 @@ def test_resilience_suite_smoke() -> None:
     stats = quick_resilience_suite(runs=40, loss=0.9)
     assert stats["pass_rate"] >= 0.0
     assert stats["fanout_at_loss"] == 8
+
+
+def test_swarm_bridge_geometric_fanout() -> None:
+    msg = {"type": "VICTIM_FOUND", "msg_id": "1"}
+    self_p = {"x": 0.0, "y": 0.0, "z": 0.0}
+    tgt = {"x": 20.0, "y": 0.0, "z": 0.0}
+    neigh = {"a": {"x": 2.0, "y": 0.0, "z": 0.0}, "b": {"x": 18.0, "y": 0.0, "z": 0.0}}
+    out = geometric_fanout_targets(msg, self_p, tgt, neigh, k_base=1, loss=0.85)
+    assert out and out[0] == "b"

@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Set, Tuple, TYPE_CHECKING
 from vertex_swarm.core.bft_consensus import LeaderlessVoteCollector
 from vertex_swarm.core.foxmq_broker import FoxMQCluster
 from vertex_swarm.core.signing import SwarmSigner
-from vertex_swarm.messaging.vertex_channels import Channel, state_topic
+from vertex_swarm.messaging.vertex_channels import state_topic
 from vertex_swarm.state.replicated_state import ReplicatedState
 
 if TYPE_CHECKING:
@@ -190,7 +190,7 @@ class VertexSwarmNode:
             self.foxmq.publish(
                 MessageKind.STATE,
                 FoxMQTopic.STATE,
-                {"vertex_swarm": envelope, "topic": state_topic(Channel(channel))},
+                {"vertex_swarm": envelope, "topic": state_topic(channel)},
             )
         except Exception as exc:  # pragma: no cover - optional stack
             logger.debug("FoxMQ publish skipped: %s", exc)
@@ -203,4 +203,5 @@ class VertexSwarmNode:
         try:
             return self._vote.propose_and_collect(self.vertex.broadcast, choice, wait_s=wait_s)
         finally:
+            self._echo_vote_keys.clear()
             self._vote = None
