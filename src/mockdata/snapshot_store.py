@@ -20,6 +20,11 @@ class SnapshotStore:
 
     def build(self, engine: "BlindHandoffEngine") -> Dict[str, Any]:
         """Build a browser/Webots frame from the blind handoff engine."""
-        snap = handoff_engine_to_track2_frame(engine)
-        self.last_snapshot = snap
-        return snap
+        try:
+            snap = handoff_engine_to_track2_frame(engine)
+            self.last_snapshot = snap
+            return snap
+        except Exception:
+            if self.last_snapshot is not None:
+                return self.last_snapshot
+            raise
