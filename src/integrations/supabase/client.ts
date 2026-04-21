@@ -2,8 +2,18 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+/** Supabase throws at import time if url/key are empty; keep boot working when env is not wired yet (e.g. Lovable preview). */
+const SUPABASE_URL =
+  typeof envUrl === "string" && envUrl.trim() !== ""
+    ? envUrl.trim()
+    : "https://example.com";
+const SUPABASE_PUBLISHABLE_KEY =
+  typeof envKey === "string" && envKey.trim() !== ""
+    ? envKey.trim()
+    : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2OTYwMH0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BNU6N4doakk";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
