@@ -10,6 +10,7 @@ from mockdata.battery_sim import DEFAULT_PROFILE
 from mockdata.config import BlindHandoffConfig
 from mockdata.handoff_event_bus import HandoffEventBus
 from mockdata.handoff_protocol import rescue_complete
+from mockdata.utils import clamp
 from mockdata.rover_paths import lawnmower_segment_progress, step_toward, xz_distance
 from mockdata.vertex_auction import RoverBidInput, VertexAuction
 from mockdata.victim_detector import detect_victim
@@ -139,9 +140,9 @@ class BlindHandoffEngine:
             self.aerial.battery = max(thr + 5.0, 100.0 - (100.0 - (thr + 5.0)) / max(t_det, 1e-6) * lt)
             for g in self.ground:
                 g.battery = max(55.0, 100.0 - prof.ground_idle_pct_s * lt * 0.2)
-        elif lt < t_au:
+        elif lt <= t_au:
             span = max(t_au - t_det, 1e-6)
-            u = (lt - t_det) / span
+            u = clamp((lt - t_det) / span, 0.0, 1.0)
             hi = thr + 5.0
             lo = max(8.0, thr - 3.0)
             self.aerial.battery = hi - (hi - lo) * u
