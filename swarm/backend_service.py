@@ -40,6 +40,7 @@ from swarm.foxmq_integration import (
     current_time_ms,
     make_foxmq_bridge,
 )
+from swarm.improved_foxmq import EnhancedFoxMQIntegration
 
 LOG = logging.getLogger(__name__)
 
@@ -440,12 +441,17 @@ class SwarmBackendRuntime:
     bridge: FoxMQBridge
     presence: MeshPresenceTracker
     router: SwarmCommandRouter
+    enhanced_foxmq: Optional[EnhancedFoxMQIntegration] = None
 
     def start(self) -> None:
         self.bridge.adapter.client.connect()
         self.bridge.start()
+        if self.enhanced_foxmq:
+            self.enhanced_foxmq.start()
 
     def stop(self) -> None:
+        if self.enhanced_foxmq:
+            self.enhanced_foxmq.stop()
         self.bridge.stop()
 
 
@@ -470,10 +476,9 @@ def build_backend_runtime(
     )
     presence = MeshPresenceTracker(bridge.adapter.state_store, stale_peer_s=stale_peer_s, dead_peer_s=dead_peer_s)
     router = SwarmCommandRouter(bridge)
-    return SwarmBackendRuntime(bridge=bridge, presence=presence, router=router)
-
-
-def build_repo_ready_runtime(
+    runtime = SwarmBackendRuntime(bridge=bridge, presence=presence, router=router)
+    runtime.enhanced_foxmq = EnhancedFoxMQIntegration(bridge.adapter.client)
+    return runtimey_runtime(
     swarm_id: str,
     node_id: str,
     broker_hosts: Sequence[str],

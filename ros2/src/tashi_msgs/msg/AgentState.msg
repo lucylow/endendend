@@ -1,0 +1,10 @@
+string agent_id
+string role
+geometry_msgs/Point position
+geometry_msgs/Vector3 velocity
+float32 battery_level
+float32 temperature_c
+float32 signal_strength
+bool alive
+string status
+builtin_interfaces/Time last_heartbeat

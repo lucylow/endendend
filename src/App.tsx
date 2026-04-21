@@ -15,6 +15,7 @@ import Docs from "@/pages/Docs";
 import Admin from "@/pages/Admin";
 import AuthPage from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
+import TashiWorkspace from "@/pages/TashiWorkspace";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import DashboardOverview from "@/pages/dashboard/Overview";
 import SimulationPage from "@/pages/dashboard/Simulation";
@@ -77,6 +78,7 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/vertex-swarm" element={<Index />} />
+              <Route path="/tashi" element={<TashiWorkspace />} />
               <Route
                 path="/scenarios/search-rescue"
                 element={<Navigate to={`/scenarios/search-rescue/${defaultSarSlug}`} replace />}
